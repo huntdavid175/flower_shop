@@ -1,0 +1,336 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import {
+	allowedNextStatuses,
+	getAdminOrder,
+	STATUS_LABELS,
+	updateOrderStatus,
+} from '../../../lib/admin';
+import { formatPesewas } from '../../../lib/money';
+import { DELIVERY_SLOTS } from '../../../lib/checkout';
+
+const staff = Astro.locals.staff!;
+const reference = String(Astro.params.reference ?? '');
+
+let notice: string | null = null;
+let problem: string | null = null;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const next = String(form.get('status') ?? '');
+	const result = await updateOrderStatus(reference, next);
+	if (result.ok) {
+		notice = `Moved to “${STATUS_LABELS[result.status] ?? result.status}”.`;
+	} else {
+		problem = result.reason;
+	}
+}
+
+const order = await getAdminOrder(reference);
+if (!order) return new Response('Order not found', { status: 404 });
+
+const slotLabel =
+	DELIVERY_SLOTS.find((slot) => slot.value === order.deliverySlot)?.label ??
+	order.deliverySlot ??
+	'—';
+
+const nextStatuses = allowedNextStatuses(order.status);
+const itemById = new Map(order.items.map((item) => [item.id, item]));
+
+const card = 'border border-forest-700/25 bg-white p-6';
+const dt = 'text-[0.8125rem] uppercase tracking-wide text-forest-700/55';
+const dd = 'mt-1 text-[0.9375rem] text-forest-900';
+---
+
+<AdminLayout title={`Order ${order.reference}`} staffName={staff.name ?? staff.email}>
+	<a
+		href="/admin"
+		class="text-[0.875rem] text-forest-700 underline underline-offset-4 hover:text-terracotta-700"
+	>
+		← All orders
+	</a>
+
+	<div class="mt-4 flex flex-wrap items-baseline justify-between gap-4">
+		<h1 class="font-display text-[1.875rem] text-forest-900">
+			{order.reference}
+		</h1>
+		<span class="text-[0.9375rem] text-forest-700/70">
+			{STATUS_LABELS[order.status] ?? order.status}
+			{order.paidAt && ` · paid ${new Date(order.paidAt).toLocaleString('en-GB')}`}
+		</span>
+	</div>
+
+	{
+		notice && (
+			<p class="mt-5 border border-forest-700 bg-white px-5 py-3 text-[0.9375rem] text-forest-700">
+				{notice}
+			</p>
+		)
+	}
+	{
+		problem && (
+			<p
+				class="mt-5 border border-terracotta-700 bg-white px-5 py-3 text-[0.9375rem] text-terracotta-700"
+				role="alert"
+			>
+				{problem}
+			</p>
+		)
+	}
+
+	<div class="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-start">
+		<div class="space-y-6">
+			{/* --- Move it along --- */}
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">
+					Where it is
+				</h2>
+				{
+					nextStatuses.length === 0 ? (
+						<p class="mt-3 text-[0.9375rem] text-forest-700/70">
+							Nothing more to do — this order is {STATUS_LABELS[order.status]?.toLowerCase()}.
+						</p>
+					) : (
+						<div class="mt-4 flex flex-wrap gap-3">
+							{nextStatuses.map((next) => (
+								<form method="post">
+									<input type="hidden" name="status" value={next} />
+									<button
+										type="submit"
+										class:list={[
+											'px-5 py-2.5 text-[0.875rem] font-semibold transition-colors duration-200',
+											next === 'cancelled' || next === 'refunded'
+												? 'border border-terracotta-700 text-terracotta-700 hover:bg-terracotta-700 hover:text-white'
+												: 'bg-terracotta-700 text-white hover:bg-terracotta-600',
+										]}
+									>
+										Mark {STATUS_LABELS[next]?.toLowerCase() ?? next}
+									</button>
+								</form>
+							))}
+						</div>
+					)
+				}
+			</section>
+
+			{/* --- The bouquets --- */}
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">
+					What to make
+				</h2>
+				<ul class="mt-4 divide-y divide-forest-700/10">
+					{
+						order.items.map((item) => (
+							<li class="flex items-baseline justify-between gap-4 py-3">
+								<span class="text-[0.9375rem] text-forest-900">
+									{item.quantity} × {item.productName}
+									{item.variantLabel && (
+										<span class="text-forest-700/70"> · {item.variantLabel}</span>
+									)}
+								</span>
+								<span class="text-[0.9375rem] text-forest-700">
+									{formatPesewas(item.lineTotalPesewas)}
+								</span>
+							</li>
+						))
+					}
+				</ul>
+
+				<dl class="mt-5 space-y-1.5 border-t border-forest-700/20 pt-4 text-[0.9375rem]">
+					<div class="flex justify-between">
+						<dt class="text-forest-700/70">Subtotal</dt>
+						<dd>{formatPesewas(order.subtotalPesewas)}</dd>
+					</div>
+					<div class="flex justify-between">
+						<dt class="text-forest-700/70">
+							Delivery{order.deliveryZone && ` — ${order.deliveryZone}`}
+						</dt>
+						<dd>{formatPesewas(order.deliveryFeePesewas)}</dd>
+					</div>
+					<div class="flex justify-between border-t border-forest-700/20 pt-2 font-semibold">
+						<dt>Total</dt>
+						<dd>{formatPesewas(order.totalPesewas)}</dd>
+					</div>
+				</dl>
+			</section>
+
+			{/* --- The message and the card --- */}
+			{
+				order.messages.map((message) => {
+					const item = message.orderItemId ? itemById.get(message.orderItemId) : null;
+					return (
+						<section class={card}>
+							<h2 class="text-[1.0625rem] font-semibold text-forest-700">
+								{item ? `Card for ${item.productName}` : 'The card'}
+							</h2>
+
+							{message.body ? (
+								<blockquote class="mt-4 border-l-2 border-terracotta-700 bg-butter px-5 py-4 font-display text-[1.0625rem] leading-[1.7] text-forest-900">
+									{message.body}
+								</blockquote>
+							) : (
+								<p class="mt-3 text-[0.9375rem] text-forest-700/60">
+									No written message.
+								</p>
+							)}
+
+							{message.audioUrl && (
+								<div class="mt-5">
+									<p class="text-[0.875rem] font-medium text-forest-700">
+										Voice message
+										<span class="ml-2 font-normal text-forest-700/60">
+											{message.voiceKind === 'uploaded' ? 'uploaded by the buyer' : 'recorded by the buyer'}
+											{message.audioSeconds ? ` · ${message.audioSeconds}s` : ''}
+										</span>
+									</p>
+									{/*
+									  Listen before it goes out. A recording that turns out to be
+									  ten seconds of silence is worth catching here, not by the
+									  person holding the flowers.
+									*/}
+									<audio controls src={message.audioUrl} class="mt-2 w-full" />
+								</div>
+							)}
+
+							{/* --- What gets printed --- */}
+							<div class="mt-6 border-t border-forest-700/20 pt-5">
+								<div class="flex flex-wrap items-center justify-between gap-3">
+									<p class="text-[0.875rem] font-medium text-forest-700">
+										{message.audioPath
+											? 'Print this card so they can hear it'
+											: 'No recording — the code is not needed'}
+									</p>
+									{message.audioPath && (
+										<a
+											href={`/admin/cards/${message.playToken}`}
+											target="_blank"
+											rel="noopener"
+											class="border border-forest-700 px-4 py-2 text-[0.875rem] font-semibold text-forest-700 transition-colors hover:bg-forest-700 hover:text-butter"
+										>
+											Open printable card
+										</a>
+									)}
+								</div>
+
+								{message.audioPath && (
+									<div class="mt-4 flex items-center gap-5">
+										<img
+											src={`/qr/${message.playToken}.svg`}
+											alt="QR code linking to the voice message"
+											width="120"
+											height="120"
+											class="border border-forest-700/20"
+										/>
+										<div class="text-[0.8125rem] leading-relaxed text-forest-700/70">
+											<p>Scanning this opens the recording.</p>
+											<p class="mt-1">
+												<a
+													href={`/m/${message.playToken}`}
+													target="_blank"
+													rel="noopener"
+													class="underline underline-offset-4 hover:text-terracotta-700"
+												>
+													Check the page it leads to
+												</a>
+											</p>
+										</div>
+									</div>
+								)}
+							</div>
+						</section>
+					);
+				})
+			}
+
+			{
+				order.messages.length === 0 && (
+					<section class={card}>
+						<h2 class="text-[1.0625rem] font-semibold text-forest-700">The card</h2>
+						<p class="mt-3 text-[0.9375rem] text-forest-700/60">
+							The buyer did not leave a message.
+						</p>
+					</section>
+				)
+			}
+		</div>
+
+		{/* --- Who and where --- */}
+		<aside class="space-y-6">
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">Deliver to</h2>
+				<dl class="mt-4 space-y-4">
+					<div>
+						<dt class={dt}>Recipient</dt>
+						<dd class={dd}>{order.recipientName ?? '—'}</dd>
+					</div>
+					<div>
+						<dt class={dt}>Phone</dt>
+						<dd class={dd}>
+							{order.recipientPhone ? (
+								<a href={`tel:${order.recipientPhone}`} class="underline underline-offset-4">
+									{order.recipientPhone}
+								</a>
+							) : '—'}
+						</dd>
+					</div>
+					<div>
+						<dt class={dt}>Address</dt>
+						<dd class={`${dd} whitespace-pre-line`}>{order.deliveryAddress ?? '—'}</dd>
+					</div>
+					{
+						order.deliveryNotes && (
+							<div>
+								<dt class={dt}>Notes</dt>
+								<dd class={dd}>{order.deliveryNotes}</dd>
+							</div>
+						)
+					}
+					<div>
+						<dt class={dt}>When</dt>
+						<dd class={dd}>{order.deliveryDate ?? '—'} · {slotLabel}</dd>
+					</div>
+				</dl>
+			</section>
+
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">Buyer</h2>
+				<dl class="mt-4 space-y-4">
+					<div>
+						<dt class={dt}>Name</dt>
+						<dd class={dd}>{order.buyerName ?? '—'}</dd>
+					</div>
+					<div>
+						<dt class={dt}>Email</dt>
+						<dd class={dd}>
+							{order.buyerEmail ? (
+								<a href={`mailto:${order.buyerEmail}`} class="underline underline-offset-4">
+									{order.buyerEmail}
+								</a>
+							) : '—'}
+						</dd>
+					</div>
+					<div>
+						<dt class={dt}>Phone</dt>
+						<dd class={dd}>
+							{order.buyerPhone ? (
+								<a href={`tel:${order.buyerPhone}`} class="underline underline-offset-4">
+									{order.buyerPhone}
+								</a>
+							) : '—'}
+						</dd>
+					</div>
+					{
+						order.paystackReference && (
+							<div>
+								<dt class={dt}>Paystack</dt>
+								<dd class="mt-1 font-mono text-[0.8125rem] text-forest-700">
+									{order.paystackReference}
+								</dd>
+							</div>
+						)
+					}
+				</dl>
+			</section>
+		</aside>
+	</div>
+</AdminLayout>

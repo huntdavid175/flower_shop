@@ -1,0 +1,307 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { formatPesewas } from '../lib/money';
+import {
+	DELIVERY_SLOTS,
+	MAX_DAYS_AHEAD,
+	MIN_DAYS_AHEAD,
+	getDeliveryZones,
+} from '../lib/checkout';
+
+/*
+ * The customer's guide to ordering.
+ *
+ * Every figure on this page is read from the same source checkout uses — the
+ * zone rows in the database, and the lead-time constants in `lib/checkout`. A
+ * guide that quotes hard-coded fees is wrong the first afternoon someone edits
+ * a delivery zone, and nobody notices until a customer arrives expecting the
+ * old price.
+ */
+const zones = await getDeliveryZones();
+
+const leadTime =
+	MIN_DAYS_AHEAD === 0
+		? 'the same day'
+		: MIN_DAYS_AHEAD === 1
+			? 'the next day'
+			: `${MIN_DAYS_AHEAD} days ahead`;
+
+const steps = [
+	{
+		title: 'Choose your bouquet',
+		body: 'Browse the shop and pick a size. Prices are per bouquet and shown in Ghana cedis, with nothing added later except delivery.',
+	},
+	{
+		title: 'Write the card',
+		body: 'Say what you want said. If the words will not come, our writing help asks who it is for, the occasion and one detail about them, then offers three versions you can edit.',
+	},
+	{
+		title: 'Add your voice, if you like',
+		body: 'Record a message in your browser, or upload one you have already made. It costs nothing extra, and it is the part people keep.',
+	},
+	{
+		title: 'Tell us where and when',
+		body: 'The recipient’s name and phone number, the address, and the day and time window you would like. The courier calls that number on arrival.',
+	},
+	{
+		title: 'Pay',
+		body: 'Card or Mobile Money through Paystack. Your order is confirmed the moment payment clears, and your receipt arrives by email.',
+	},
+];
+
+const sectionTitle =
+	'font-display text-[clamp(1.5rem,2.4vw,2rem)] leading-tight text-forest-900';
+const body = 'text-[0.9375rem] leading-[1.75] text-forest-700/80';
+const card = 'border border-forest-700/25 bg-white p-6 sm:p-8';
+---
+
+<Layout
+	title="How ordering works — La Fleur"
+	description="How to place an order with La Fleur: writing your card, adding a voice message, payment by card or Mobile Money, and delivery across Accra."
+>
+	<section class="bg-butter py-16 lg:py-20">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<PageHeader
+				title="How it works"
+				subtitle="From choosing a bouquet to the moment it arrives."
+			/>
+
+			<div class="mx-auto mt-[clamp(3rem,6vw,6rem)] w-full max-w-3xl">
+				{/* --- Ordering --- */}
+				<h2 class={sectionTitle}>Placing an order</h2>
+
+				<ol class="mt-8 space-y-8">
+					{
+						steps.map((step, index) => (
+							<li class="flex gap-5 sm:gap-7">
+								<span
+									class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-forest-700 font-display text-[1.0625rem] text-forest-700"
+									aria-hidden="true"
+								>
+									{index + 1}
+								</span>
+								<span class="pt-1.5">
+									<span class="block text-[1.0625rem] font-semibold text-forest-900">
+										{step.title}
+									</span>
+									<span class={`mt-2 block ${body}`}>{step.body}</span>
+								</span>
+							</li>
+						))
+					}
+				</ol>
+
+				<a
+					href="/shop"
+					class="group mt-10 inline-flex items-center gap-3 bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+				>
+					Start with the flowers
+					<svg
+						width="18"
+						height="12"
+						viewBox="0 0 18 12"
+						fill="none"
+						aria-hidden="true"
+						class="transition-transform duration-300 group-hover:translate-x-1"
+					>
+						<path
+							d="M0 6h16M11.5 1l5 5-5 5"
+							stroke="currentColor"
+							stroke-width="1.3"
+							stroke-linecap="round"
+							stroke-linejoin="round"></path>
+					</svg>
+				</a>
+
+				{/* --- The voice card --- */}
+				<h2 class={`${sectionTitle} mt-16 lg:mt-20`}>The card they can hear</h2>
+				<p class={`mt-4 ${body}`}>
+					If you leave a voice message, we print a small card with a code on it
+					and tuck it in with the flowers. The person receiving them points their
+					phone camera at it, and your voice plays. There is no app to install
+					and nothing for them to sign up to.
+				</p>
+
+				<div class="mt-6 grid gap-4 sm:grid-cols-3">
+					{
+						[
+							{ n: '01', t: 'You record', d: 'In your browser, or upload a file.' },
+							{ n: '02', t: 'We print', d: 'A card with a code, packed with the bouquet.' },
+							{ n: '03', t: 'They scan', d: 'The camera opens it. Your voice plays.' },
+						].map((item) => (
+							<div class="border border-forest-700/25 bg-white p-5">
+								<span class="block text-[0.75rem] font-semibold tracking-[0.18em] text-terracotta-700">
+									{item.n}
+								</span>
+								<span class="mt-3 block text-[0.9375rem] font-semibold text-forest-900">
+									{item.t}
+								</span>
+								<span class="mt-1.5 block text-[0.875rem] leading-relaxed text-forest-700/75">
+									{item.d}
+								</span>
+							</div>
+						))
+					}
+				</div>
+
+				<p class="mt-5 text-[0.875rem] leading-relaxed text-forest-700/65">
+					Only the person holding the card can open it &mdash; the code is
+					unguessable and appears nowhere else. It shows your message and the
+					bouquet, and never your name, your address or what you paid.
+				</p>
+
+				{/* --- Payment --- */}
+				<h2 class={`${sectionTitle} mt-16 lg:mt-20`}>Paying</h2>
+				<p class={`mt-4 ${body}`}>
+					Payment is handled by Paystack. We never see or store your card or
+					Mobile Money details.
+				</p>
+
+				<div class="mt-6 grid gap-4 sm:grid-cols-2">
+					<div class={card}>
+						<h3 class="text-[1.0625rem] font-semibold text-forest-900">
+							Mobile Money
+						</h3>
+						<p class="mt-2 text-[0.875rem] leading-relaxed text-forest-700/75">
+							MTN MoMo, Telecel Cash and AirtelTigo Money. You approve the
+							payment on your phone.
+						</p>
+					</div>
+					<div class={card}>
+						<h3 class="text-[1.0625rem] font-semibold text-forest-900">
+							Card
+						</h3>
+						<p class="mt-2 text-[0.875rem] leading-relaxed text-forest-700/75">
+							Visa and Mastercard, Ghanaian or international. Your bank may ask
+							you to confirm with a code.
+						</p>
+					</div>
+				</div>
+
+				<ul class={`mt-6 space-y-3 ${body}`}>
+					<li>
+						<strong class="font-semibold text-forest-900">
+							Everything is in Ghana cedis (GHS).
+						</strong>{' '}
+						The price you see at checkout is the amount taken, delivery included.
+					</li>
+					<li>
+						<strong class="font-semibold text-forest-900">
+							Nothing is charged until you pay.
+						</strong>{' '}
+						Your basket and your message are saved while you decide.
+					</li>
+					<li>
+						<strong class="font-semibold text-forest-900">
+							If a payment fails, nothing is lost.
+						</strong>{' '}
+						Your bouquets and your message stay where they were, and you can try
+						again.
+					</li>
+				</ul>
+
+				{/* --- Delivery --- */}
+				<h2 class={`${sectionTitle} mt-16 lg:mt-20`}>Delivery</h2>
+				<p class={`mt-4 ${body}`}>
+					We deliver across Greater Accra. The fee depends on the area, and is
+					added once at checkout &mdash; not per bouquet.
+				</p>
+
+				{
+					zones.length > 0 && (
+						<div class="mt-6 overflow-x-auto border border-forest-700/25 bg-white">
+							<table class="w-full min-w-[24rem] border-collapse text-left">
+								<caption class="sr-only">Delivery areas and fees</caption>
+								<thead>
+									<tr class="border-b border-forest-700/20 text-[0.8125rem] uppercase tracking-wide text-forest-700/60">
+										<th scope="col" class="px-5 py-3 font-medium">Area</th>
+										<th scope="col" class="px-5 py-3 text-right font-medium">
+											Delivery
+										</th>
+									</tr>
+								</thead>
+								<tbody>
+									{zones.map((zone) => (
+										<tr class="border-b border-forest-700/10 last:border-0">
+											<td class="px-5 py-3.5 text-[0.9375rem] text-forest-700">
+												{zone.name}
+											</td>
+											<td class="px-5 py-3.5 text-right text-[0.9375rem] font-medium text-forest-900">
+												{formatPesewas(zone.feePesewas)}
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					)
+				}
+
+				<div class="mt-6 grid gap-4 sm:grid-cols-2">
+					<div class={card}>
+						<h3 class="text-[1.0625rem] font-semibold text-forest-900">
+							Choosing a day
+						</h3>
+						<p class="mt-2 text-[0.875rem] leading-relaxed text-forest-700/75">
+							The earliest we can deliver is {leadTime}, and you can book up to{' '}
+							{MAX_DAYS_AHEAD} days ahead &mdash; useful for a birthday you do
+							not want to forget.
+						</p>
+					</div>
+					<div class={card}>
+						<h3 class="text-[1.0625rem] font-semibold text-forest-900">
+							Time windows
+						</h3>
+						<ul class="mt-2 space-y-1.5 text-[0.875rem] leading-relaxed text-forest-700/75">
+							{DELIVERY_SLOTS.map((slot) => (
+								<li>{slot.label}</li>
+							))}
+						</ul>
+					</div>
+				</div>
+
+				<ul class={`mt-6 space-y-3 ${body}`}>
+					<li>
+						<strong class="font-semibold text-forest-900">
+							Give us a phone number that will be answered.
+						</strong>{' '}
+						The courier rings the recipient when they arrive. It is the single
+						biggest reason a delivery succeeds or fails.
+					</li>
+					<li>
+						<strong class="font-semibold text-forest-900">
+							Add a landmark to the address.
+						</strong>{' '}
+						Much of Accra is found by landmark rather than street number, and it
+						saves the courier a phone call.
+					</li>
+					<li>
+						<strong class="font-semibold text-forest-900">
+							Keeping it a surprise?
+						</strong>{' '}
+						Say so in the note for the courier, and they will not mention who
+						sent them until the flowers are handed over.
+					</li>
+				</ul>
+
+				{/* --- Help --- */}
+				<div class="mt-16 border border-forest-700 bg-white p-8 text-center lg:mt-20">
+					<h2 class="font-display text-[1.375rem] text-forest-900">
+						Still unsure about something?
+					</h2>
+					<p class="mx-auto mt-3 max-w-xl text-[0.9375rem] leading-relaxed text-forest-700/75">
+						Ordering flowers for someone matters, and it is worth getting right.
+						Ask us before you order rather than after.
+					</p>
+					<a
+						href="/contact"
+						class="mt-6 inline-flex items-center gap-3 border border-terracotta-700 px-7 py-3.5 text-[0.9375rem] font-semibold text-terracotta-700 transition-colors duration-300 hover:bg-terracotta-700 hover:text-white"
+					>
+						Talk to us
+					</a>
+				</div>
+			</div>
+		</div>
+	</section>
+</Layout>

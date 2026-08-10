@@ -1,0 +1,313 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import VoiceRecorder from '../../components/VoiceRecorder.tsx';
+import MessageComposer from '../../components/MessageComposer.tsx';
+import { readCart, resolveCart } from '../../lib/cart';
+import { getMessages, syncDraftOrder } from '../../lib/orders';
+import { formatPesewas } from '../../lib/money';
+import { OCCASIONS, TONES } from '../../lib/ai';
+
+const cart = await resolveCart(readCart(Astro.cookies));
+
+// Nothing to write a message about — send them back rather than showing an
+// empty step.
+if (cart.lines.length === 0) {
+	return Astro.redirect('/cart', 303);
+}
+
+/*
+ * Reaching this step is what creates the draft order. Everything the customer
+ * writes or records from here attaches to it, and the Paystack webhook later
+ * promotes the same row rather than copying it anywhere.
+ */
+const draft = await syncDraftOrder(Astro.cookies, cart);
+if (!draft) return Astro.redirect('/cart', 303);
+
+// Re-entering the step should show what was written last time, not a blank box.
+const existing = await getMessages(draft.id);
+const orderWideMessage =
+	existing.find((message) => message.orderItemId === null)?.body ?? '';
+const perItemMessages = new Map(
+	existing
+		.filter((message) => message.orderItemId !== null)
+		.map((message) => [message.orderItemId as string, message.body ?? '']),
+);
+
+const audioByTarget = new Map(
+	existing.map((message) => [message.orderItemId, Boolean(message.audioPath)]),
+);
+
+const hasSeveralItems = draft.items.length > 1;
+// Default to whichever shape they used before; per-order for a fresh visit.
+const startScope = perItemMessages.size > 0 ? 'item' : 'order';
+
+const fieldLabel = 'block text-[0.9375rem] font-medium text-forest-700';
+const textareaClass =
+	'mt-2 w-full rounded-none border border-forest-700 bg-white px-4 py-3.5 text-[0.9375rem] leading-[1.7] text-forest-900 outline-none transition-colors duration-200 placeholder:text-forest-700/45 focus:border-terracotta-700';
+---
+
+<Layout
+	title="Your message — La Fleur"
+	description="Add a message to your bouquet."
+>
+	<section class="bg-butter py-16 lg:py-20">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<PageHeader
+				title="Your Message"
+				subtitle="Say something they'll keep. You can skip this and add it later."
+			/>
+
+			<form
+				method="post"
+				action="/api/message"
+				class="mx-auto mt-[clamp(3rem,6vw,8rem)] w-full max-w-2xl"
+			>
+				{
+					hasSeveralItems && (
+						<fieldset class="border border-forest-700 bg-white p-5">
+							<legend class="px-2 text-[0.9375rem] font-semibold text-forest-700">
+								Who is this order for?
+							</legend>
+							<p class="mt-2 text-[0.875rem] text-forest-700/70">
+								You have {draft.items.length} bouquets in this order.
+							</p>
+
+							<div class="mt-4 space-y-3">
+								<label class="flex items-start gap-3 text-[0.9375rem] text-forest-700">
+									<input
+										type="radio"
+										name="scope"
+										value="order"
+										checked={startScope === 'order'}
+										class="mt-1 accent-terracotta-700"
+										data-scope
+									/>
+									<span>
+										One message for everything
+										<span class="block text-[0.8125rem] text-forest-700/70">
+											The same card goes with every bouquet.
+										</span>
+									</span>
+								</label>
+
+								<label class="flex items-start gap-3 text-[0.9375rem] text-forest-700">
+									<input
+										type="radio"
+										name="scope"
+										value="item"
+										checked={startScope === 'item'}
+										class="mt-1 accent-terracotta-700"
+										data-scope
+									/>
+									<span>
+										A different message for each bouquet
+										<span class="block text-[0.8125rem] text-forest-700/70">
+											Each one gets its own card and its own recording.
+										</span>
+									</span>
+								</label>
+							</div>
+						</fieldset>
+					)
+				}
+
+				{!hasSeveralItems && <input type="hidden" name="scope" value="order" />}
+
+				{/* --- One message for the whole order --- */}
+				<div
+					id="scope-order"
+					class={hasSeveralItems ? 'mt-8' : ''}
+					hidden={hasSeveralItems && startScope !== 'order'}
+				>
+					<label for="message" class={fieldLabel}>Your message</label>
+					<textarea
+						id="message"
+						name="message"
+						rows="5"
+						maxlength="2000"
+						placeholder="Special with love for you ……"
+						class={textareaClass}>{orderWideMessage}</textarea>
+					<p class="mt-2 text-[0.8125rem] text-forest-700/60">
+						This is printed on the card that goes with the flowers.
+					</p>
+
+					<MessageComposer
+						client:load
+						textareaId="message"
+						occasions={OCCASIONS}
+						tones={TONES}
+					/>
+
+					<VoiceRecorder
+						client:load
+						initialHasAudio={audioByTarget.get(null) ?? false}
+						label="Add a voice message"
+					/>
+				</div>
+
+				{/* --- One message per bouquet --- */}
+				{
+					hasSeveralItems && (
+						<div
+							id="scope-item"
+							class="mt-8 space-y-6"
+							hidden={startScope !== 'item'}
+						>
+							{draft.items.map((item) => (
+								<div class="border border-forest-700 bg-white p-5">
+									<input type="hidden" name="itemId" value={item.id} />
+									<div class="flex items-center gap-4">
+										<span class="block aspect-7/8 w-14 shrink-0 overflow-hidden bg-surface-alt">
+											<img
+												src={item.image}
+												alt=""
+												loading="lazy"
+												class="h-full w-full object-cover"
+											/>
+										</span>
+										<span class="text-[0.9375rem] font-medium text-forest-700">
+											{item.productName}
+											{item.variantLabel && (
+												<span class="block text-[0.8125rem] font-normal text-forest-700/70">
+													{item.variantLabel} · {item.quantity} ×
+												</span>
+											)}
+										</span>
+									</div>
+
+									<label for={`message-${item.id}`} class="sr-only">
+										Message for {item.productName}
+									</label>
+									<textarea
+										id={`message-${item.id}`}
+										name={`message-${item.id}`}
+										rows="3"
+										maxlength="2000"
+										placeholder="Special with love for you ……"
+										class={textareaClass}
+									>
+										{perItemMessages.get(item.id) ?? ''}
+									</textarea>
+
+									<MessageComposer
+										client:load
+										itemId={item.id}
+										textareaId={`message-${item.id}`}
+										occasions={OCCASIONS}
+										tones={TONES}
+									/>
+
+									<VoiceRecorder
+										client:load
+										itemId={item.id}
+										initialHasAudio={audioByTarget.get(item.id) ?? false}
+										label={`Voice message for ${item.productName}`}
+									/>
+								</div>
+							))}
+						</div>
+					)
+				}
+
+				<div
+					class="mt-10 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between"
+				>
+					<span class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 sm:justify-start">
+						<a
+							href="/cart"
+							class="text-[0.875rem] text-forest-700 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+						>
+							Back to cart
+						</a>
+						<button
+							type="submit"
+							form="start-over"
+							class="text-[0.875rem] text-forest-700/70 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+						>
+							Start over
+						</button>
+					</span>
+
+					<button
+						type="submit"
+						class="group inline-flex items-center justify-center gap-3 bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+					>
+						Continue to checkout
+						<svg
+							width="18"
+							height="12"
+							viewBox="0 0 18 12"
+							fill="none"
+							aria-hidden="true"
+							class="transition-transform duration-300 group-hover:translate-x-1"
+						>
+							<path
+								d="M0 6h16M11.5 1l5 5-5 5"
+								stroke="currentColor"
+								stroke-width="1.3"
+								stroke-linecap="round"
+								stroke-linejoin="round"></path>
+						</svg>
+					</button>
+				</div>
+
+				<p class="mt-6 text-[0.8125rem] text-forest-700/60">
+					Order {draft.reference} · {formatPesewas(draft.subtotalPesewas)}
+				</p>
+			</form>
+
+			{/*
+			  A sibling of the form above, not a child — forms cannot nest, and the
+			  "Start over" button reaches it by id. Keeping it separate also means
+			  it submits nothing the buyer typed.
+			*/}
+			<form
+				method="post"
+				action="/api/order/start-over"
+				id="start-over"
+				class="hidden"
+				data-confirm="Start over? This clears your basket, your message and any recording."
+			></form>
+		</div>
+	</section>
+</Layout>
+
+<script>
+	/*
+	 * Show whichever set of boxes matches the chosen scope.
+	 *
+	 * Both sets stay in the document either way — the server decides what to
+	 * save from the `scope` field, so a visitor without JavaScript submits both
+	 * and still gets the correct result rather than a broken form.
+	 */
+	const order = document.getElementById('scope-order');
+	const item = document.getElementById('scope-item');
+	const radios = document.querySelectorAll<HTMLInputElement>('[data-scope]');
+
+	function apply() {
+		const selected =
+			document.querySelector<HTMLInputElement>('[data-scope]:checked')?.value ??
+			'order';
+		if (order) order.hidden = selected !== 'order';
+		if (item) item.hidden = selected !== 'item';
+	}
+
+	radios.forEach((radio) => radio.addEventListener('change', apply));
+	apply();
+
+	/*
+	 * Ask before throwing the buyer's work away. Without JavaScript the form
+	 * still submits — losing a basket you asked to clear is a far smaller harm
+	 * than a "start over" button that silently does nothing.
+	 */
+	document
+		.querySelectorAll<HTMLFormElement>('form[data-confirm]')
+		.forEach((form) => {
+			form.addEventListener('submit', (event) => {
+				if (!window.confirm(form.dataset.confirm ?? 'Are you sure?')) {
+					event.preventDefault();
+				}
+			});
+		});
+</script>

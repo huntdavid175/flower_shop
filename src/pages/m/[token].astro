@@ -1,0 +1,200 @@
+---
+import '../../styles/global.css';
+import { Font } from 'astro:assets';
+import MessagePlayer from '../../components/MessagePlayer.tsx';
+import { AUDIO_BUCKET } from '../../lib/orders';
+import { supabaseAdmin } from '../../lib/supabase';
+
+/*
+ * The page behind the QR code on the card.
+ *
+ * Necessarily unauthenticated — the recipient is a stranger holding a printed
+ * card — so the token is the only thing protecting a private message. It is 32
+ * random hex characters and unrelated to the order, and the lookup is exact:
+ * there is nothing to enumerate and no partial match to probe.
+ *
+ * Deliberately not wrapped in the site layout. Someone scans this holding
+ * flowers, on a phone, usually in front of the person who sent them — a
+ * navigation bar inviting them to go shopping is the wrong thing entirely. It
+ * is a full-screen player with the shop's name on it and nothing else to do.
+ */
+const { token } = Astro.params;
+
+const valid = typeof token === 'string' && /^[0-9a-f]{32}$/i.test(token);
+
+const { data: message } = valid
+	? await supabaseAdmin
+			.from('order_messages')
+			.select('id, body, audio_path, audio_mime, audio_seconds, order_id, play_count')
+			.eq('play_token', token)
+			.maybeSingle()
+	: { data: null };
+
+if (!message) {
+	return new Response(null, { status: 404, statusText: 'Message not found' });
+}
+
+// Only reveal the bouquet, never the buyer: the recipient should not learn what
+// was paid, nor see anything else on the order.
+const { data: item } = message
+	? await supabaseAdmin
+			.from('order_items')
+			.select('product_name, products ( image_url )')
+			.eq('order_id', message.order_id)
+			.limit(1)
+			.maybeSingle()
+	: { data: null };
+
+// The bouquet photograph doubles as the player's artwork.
+const artwork =
+	(item as { products?: { image_url?: string | null } } | null)?.products
+		?.image_url ?? null;
+
+/*
+ * A short-lived signed URL rather than a public object. The bucket is private,
+ * so the audio cannot be reached by guessing a path, and a shared link expires
+ * rather than granting permanent access to someone's voice.
+ */
+let audioUrl: string | null = null;
+if (message.audio_path) {
+	const { data: signed } = await supabaseAdmin.storage
+		.from(AUDIO_BUCKET)
+		.createSignedUrl(message.audio_path, 60 * 60);
+	audioUrl = signed?.signedUrl ?? null;
+}
+
+/*
+ * Record that it was listened to.
+ *
+ * Awaited, not fired and forgotten. Two reasons, and the first is the one that
+ * bit: a Supabase query builder is lazy — it is `PromiseLike` and only issues
+ * its request when something calls `.then()`. `void builder` builds the update
+ * and discards it, so this silently counted nothing at all. Second, on a
+ * serverless host the function can be torn down the moment the response is
+ * sent, which kills an un-awaited promise anyway.
+ *
+ * The cost is one round trip on a page that already makes three. A failure is
+ * swallowed: the shop losing a statistic must never stop someone hearing the
+ * message they were sent.
+ */
+try {
+	await supabaseAdmin
+		.from('order_messages')
+		.update({
+			played_at: new Date().toISOString(),
+			play_count: (message.play_count ?? 0) + 1,
+		})
+		.eq('id', message.id);
+} catch (cause) {
+	console.error('play counter failed', cause);
+}
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+		{/* A private message. It should never turn up in a search result. */}
+		<meta name="robots" content="noindex,nofollow" />
+		{/* Tints the browser chrome on a phone so the page reads as one surface. */}
+		<meta name="theme-color" content="#0d3b3a" />
+		<title>A message for you — La Fleur</title>
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<Font cssVariable="--font-playfair" preload />
+		<Font cssVariable="--font-montserrat" preload />
+		<Font cssVariable="--font-parisienne" preload />
+	</head>
+
+	<body
+		class="min-h-[100svh] bg-[radial-gradient(110%_130%_at_50%_30%,var(--color-teal-700)_0%,var(--color-teal-800)_45%,var(--color-teal-950)_100%)] font-body text-white"
+	>
+		{/*
+		  `100svh` rather than `100vh`: on iOS the address bar makes `vh` taller
+		  than the visible area, which would push the play button off-screen at
+		  exactly the moment someone wants it.
+		*/}
+		<main
+			class="mx-auto flex min-h-[100svh] w-full max-w-[30rem] flex-col px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))]"
+		>
+			{/* --- Branding, and nothing to click away to --- */}
+			<header class="text-center">
+				<p class="font-logo text-[2rem] leading-none text-cream">La Fleur</p>
+			</header>
+
+			<div class="flex flex-1 flex-col justify-center py-10">
+				{/* --- Artwork --- */}
+				{
+					artwork && (
+						<div class="mx-auto w-full max-w-[17rem]">
+							<span class="block aspect-square overflow-hidden rounded-2xl bg-teal-950/40 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.65)]">
+								<img
+									src={artwork}
+									alt=""
+									class="h-full w-full object-cover"
+								/>
+							</span>
+						</div>
+					)
+				}
+
+				<p
+					class="mt-9 text-center text-[0.75rem] uppercase tracking-[0.22em] text-cream/60"
+				>
+					A message for you
+				</p>
+
+				{
+					item?.product_name && (
+						<p class="mt-2 text-center font-display text-[1.375rem] leading-snug text-white">
+							with your {item.product_name}
+						</p>
+					)
+				}
+
+				{
+					message.body && (
+						<blockquote
+							class="mt-7 text-center font-display text-[clamp(1.1875rem,5vw,1.5rem)] leading-[1.55] text-white/95"
+						>
+							{message.body}
+						</blockquote>
+					)
+				}
+
+				{
+					audioUrl ? (
+						<div class="mt-9">
+							<MessagePlayer
+								client:load
+								src={audioUrl}
+								title={item?.product_name ?? 'Your voice message'}
+								image={artwork}
+								fallbackDuration={message.audio_seconds ?? null}
+							/>
+							{/* Without JavaScript the island never hydrates, so the browser's
+							    own control bar stands in rather than leaving a silent card. */}
+							<noscript>
+								<audio controls preload="metadata" class="mt-4 w-full" src={audioUrl}
+								></audio>
+							</noscript>
+						</div>
+					) : (
+						!message.body && (
+							<p class="mt-9 text-center text-[0.9375rem] text-cream/80">
+								This message is still being prepared.
+							</p>
+						)
+					)
+				}
+			</div>
+
+			<footer class="text-center">
+				<p class="text-[0.75rem] tracking-wide text-cream/45">
+					Sent with flowers from La Fleur &middot; Accra
+				</p>
+			</footer>
+		</main>
+	</body>
+</html>

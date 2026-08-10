@@ -1,0 +1,286 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import PaymentMarks from '../../components/PaymentMarks.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import SectionHeader from '../../components/SectionHeader.astro';
+import { getProductBySlug, getRelatedProducts } from '../../lib/catalog';
+import { formatPriceShort } from '../../lib/money';
+
+const { slug } = Astro.params;
+const product = slug ? await getProductBySlug(slug) : undefined;
+
+if (!product) {
+	return new Response(null, { status: 404, statusText: 'Product not found' });
+}
+
+const isReduced =
+	product.comparePesewas !== undefined &&
+	product.comparePesewas > product.pricePesewas;
+
+const hasVariants = product.variants.length > 0;
+
+// Shown until a size is chosen. Without JavaScript this stays put, which is
+// why it is labelled "From" rather than presented as the price.
+const startingPricePesewas = product.pricePesewas;
+
+const description =
+	product.description ?? 'A hand-tied arrangement from our workshop.';
+const deliveryInformation =
+	product.deliveryInformation ??
+	'Delivery is calculated at checkout from your area. Same-day slots are available across Accra.';
+
+const justAdded = Astro.url.searchParams.get('added') === '1';
+
+const related = await getRelatedProducts(product, 4);
+
+const fieldLabel = 'block text-[0.9375rem] font-medium text-forest-700';
+/*
+ * Square corners and a solid forest border, matching the rest of the site.
+ *
+ * `outline-none` suppresses the global focus ring here because the border
+ * itself carries focus instead, turning terracotta. Keeping the ring as well
+ * would double up. Uses :focus rather than :focus-visible so the change shows
+ * on click as well as on keyboard tab.
+ */
+const fieldControl =
+	'mt-2 w-full rounded-none border border-forest-700 bg-white px-4 py-3.5 text-[0.9375rem] text-forest-900 outline-none transition-colors duration-200 focus:border-terracotta-700';
+---
+
+<Layout title={`${product.name} — La Fleur`} description={description}>
+	<section class="bg-butter py-16 lg:py-20">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<PageHeader
+				title="Shop Details"
+				subtitle="Fresh elegant flower bouquets crafted for every special occasion."
+			/>
+
+			{/* Held narrower than the page container — a product block reads better
+			    tighter than a full-width grid of cards. */}
+			<div
+				class="mx-auto mt-[clamp(3rem,6vw,8rem)] grid w-full max-w-5xl gap-10 lg:grid-cols-[1.7fr_1fr] lg:gap-14"
+			>
+				{/*
+				  The photograph stays pinned while the taller column of options
+				  scrolls past, then releases at the end of the section.
+
+				  `self-start` is what makes that work: grid children stretch to the
+				  full row height by default, which leaves a sticky element no room to
+				  travel, so it would simply never move.
+				*/}
+				<div class="lg:sticky lg:top-6 lg:self-start">
+					<div class="aspect-7/8 overflow-hidden bg-surface-alt">
+						<img
+							src={product.image}
+							alt={product.name}
+							class="h-full w-full object-cover"
+							fetchpriority="high"
+							decoding="async"
+						/>
+					</div>
+				</div>
+
+				<div>
+					<h2
+						class="font-display text-[clamp(1.75rem,3vw,3rem)] leading-none text-forest-700"
+					>
+						{product.name}
+					</h2>
+
+					{
+						product.sku && (
+							<p class="mt-4 text-[0.875rem] text-forest-700/70">
+								SKU: {product.sku}
+							</p>
+						)
+					}
+
+					<p class="mt-3 flex items-center gap-2">
+						<span class="flex gap-0.5 text-[#f5b301]" aria-hidden="true">
+							{
+								Array.from({ length: 5 }).map(() => (
+									<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+										<path d="M8 1.5l1.9 4.02 4.35.6-3.15 3.1.75 4.38L8 11.53 4.15 13.6l.75-4.38-3.15-3.1 4.35-.6z" />
+									</svg>
+								))
+							}
+						</span>
+						<span class="text-[0.875rem] text-forest-700/70">
+							<span class="sr-only">Rated 5 out of 5 from </span>7k Reviews
+						</span>
+					</p>
+
+					<p class="mt-8 flex items-baseline gap-3">
+						{
+							hasVariants && (
+								<span class="text-[0.875rem] text-forest-700/70">From</span>
+							)
+						}
+						<span
+							class="font-display text-[clamp(2rem,3.5vw,3.5rem)] leading-none text-forest-700"
+						>
+							{formatPriceShort(startingPricePesewas)}
+						</span>
+						{
+							product.comparePesewas !== undefined && (
+								<>
+									<span class="sr-only">{isReduced ? 'Was' : 'Previously'}</span>
+									<s class="font-display text-[clamp(1rem,1.4vw,1.375rem)] text-forest-300">
+										{formatPriceShort(product.comparePesewas)}
+									</s>
+								</>
+							)
+						}
+					</p>
+
+					<form method="post" action="/api/cart" class="mt-10 space-y-5">
+						<input type="hidden" name="action" value="add" />
+
+						<div>
+							<label for="variant" class={fieldLabel}>Select size</label>
+							{/*
+							  The option value is the variant id, so the server never has to
+							  map a label back to a price — and a tampered value simply
+							  fails to resolve rather than resolving to the wrong money.
+							*/}
+							<select id="variant" name="variantId" required class={fieldControl}>
+								<option value="">Choose an option</option>
+								{
+									product.variants.map((variant) => (
+										<option value={variant.id}>
+											{variant.label} — {formatPriceShort(variant.pricePesewas)}
+										</option>
+									))
+								}
+							</select>
+						</div>
+
+						<div>
+							<label for="quantity" class={fieldLabel}>Quantity</label>
+							<input
+								id="quantity"
+								name="quantity"
+								type="number"
+								value="1"
+								min="1"
+								max="20"
+								class={fieldControl}
+							/>
+						</div>
+
+						{/*
+						  Two submit buttons sharing one form, distinguished by the value
+						  of "then". Only the clicked button's name/value pair is
+						  submitted, so the endpoint knows whether to stay put or move on
+						  — no JavaScript involved.
+						*/}
+						<div class="flex flex-col gap-3 pt-1 sm:flex-row">
+							<button
+								type="submit"
+								name="then"
+								value="back"
+								class="flex-1 border border-terracotta-700 px-6 py-4 text-[0.9375rem] font-semibold text-terracotta-700 transition-colors duration-300 hover:bg-terracotta-700 hover:text-white"
+							>
+								Add to Cart
+							</button>
+
+							<button
+								type="submit"
+								name="then"
+								value="message"
+								class="group inline-flex flex-1 items-center justify-center gap-3 bg-terracotta-700 px-6 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+							>
+								Buy It Now
+								<svg
+									width="18"
+									height="12"
+									viewBox="0 0 18 12"
+									fill="none"
+									aria-hidden="true"
+									class="transition-transform duration-300 group-hover:translate-x-1"
+								>
+									<path
+										d="M0 6h16M11.5 1l5 5-5 5"
+										stroke="currentColor"
+										stroke-width="1.3"
+										stroke-linecap="round"
+										stroke-linejoin="round"></path>
+								</svg>
+							</button>
+						</div>
+					</form>
+
+					{
+						justAdded && (
+							<p
+								aria-live="polite"
+								class="mt-4 flex items-center gap-3 text-[0.875rem] font-medium text-forest-700"
+							>
+								Added to your cart.
+								<a
+									href="/cart"
+									class="text-terracotta-700 underline underline-offset-4"
+								>
+									View cart
+								</a>
+							</p>
+						)
+					}
+
+					<div class="mt-8">
+						<p class="text-[0.9375rem] font-semibold text-forest-700">
+							Guaranteed safe checkout
+						</p>
+						<div class="mt-4">
+							<PaymentMarks />
+						</div>
+					</div>
+
+					<div class="mt-10 border-t border-forest-700/30 pt-8">
+						{/* Solid forest, matching the form fields above. */}
+						<div class="divide-y divide-forest-700 border border-forest-700">
+							<div class="p-5">
+								<h3 class="text-[0.9375rem] font-semibold text-forest-700">
+									Description
+								</h3>
+								<p class="mt-3 text-[0.9375rem] leading-[1.7] text-forest-700/80">
+									{description}
+								</p>
+							</div>
+
+							<div class="p-5">
+								<h3 class="text-[0.9375rem] font-semibold text-forest-700">
+									Delivery Information
+								</h3>
+								<p class="mt-3 text-[0.9375rem] leading-[1.7] text-forest-700/80">
+									{deliveryInformation}
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			{
+				related.length > 0 && (
+					<section
+						aria-labelledby="in-this-collection"
+						class="mt-[clamp(4rem,8vw,10rem)]"
+					>
+						<SectionHeader
+							id="in-this-collection"
+							title="In this collection"
+							linkHref="/shop"
+							linkLabel="See All Bouquets"
+						/>
+						<ul class="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:mt-12 lg:grid-cols-4">
+							{related.map((item) => (
+								<ProductCard product={item} />
+							))}
+						</ul>
+					</section>
+				)
+			}
+		</div>
+	</section>
+</Layout>

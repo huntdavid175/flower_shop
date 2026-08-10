@@ -1,0 +1,81 @@
+---
+/*
+ * Bounded height, deliberately not full-screen: it grows with the viewport but
+ * stops at 46.5rem, so on a tall display the next section is already peeking
+ * above the fold rather than the hero swallowing the whole screen.
+ *
+ *   short viewport  -> 32rem floor, so the composition never crushes
+ *   laptop (~850px) -> ~88vh, matching the reference screenshot
+ *   tall display    -> capped at 46.5rem
+ */
+---
+
+<section
+	class="relative isolate flex h-[clamp(32rem,88vh,46.5rem)] flex-col overflow-hidden bg-teal-700"
+>
+	{/*
+	  The photograph carries its own teal backdrop, so it meets the section
+	  colour without a seam. Anchored right-of-centre to keep the subject in
+	  frame as the viewport narrows and the text column takes more room.
+	*/}
+	<img
+		src="/images/header.avif"
+		alt=""
+		class="absolute inset-0 -z-20 h-full w-full object-cover object-[68%_center]"
+		fetchpriority="high"
+		decoding="async"
+	/>
+
+	{/* Fallback ground, visible only where the photograph does not reach. */}
+	<div
+		class="absolute inset-0 -z-30 bg-[radial-gradient(120%_100%_at_40%_55%,var(--color-teal-600)_0%,var(--color-teal-800)_55%,var(--color-teal-950)_100%)]"
+		aria-hidden="true"
+	>
+	</div>
+
+	{/* Legibility wash over the text column, faded out before the subject. */}
+	<div
+		class="absolute inset-0 -z-10 bg-gradient-to-r from-teal-950/55 from-0% via-teal-950/25 via-30% to-transparent to-55%"
+		aria-hidden="true"
+	>
+	</div>
+
+	<div
+		class="relative mt-auto w-full px-5 pb-14 sm:px-8 sm:pb-16 lg:px-10 lg:pb-[4.75rem] 3xl:mx-auto 3xl:max-w-page"
+	>
+		<h1 class="font-display text-hero text-white">
+			Fresh Blooms,<br class="hidden sm:block" /> Pure Happiness
+		</h1>
+
+		{/*
+		  max-width in `em` rather than px, so the measure scales with the font
+		  size and the line breaks in the same place at every viewport.
+		*/}
+		<p class="mt-5 max-w-[32em] text-hero-body font-normal text-cream">
+			Discover handpicked flowers and unique arrangements for every occasion.
+			Brighten someone&rsquo;s day today.
+		</p>
+
+		<a
+			href="/shop"
+			class="group mt-8 inline-flex items-center gap-3 bg-terracotta-600 px-7 py-4 text-[clamp(0.875rem,0.8vw,1rem)] font-medium tracking-[0.01em] text-white transition-colors duration-300 hover:bg-terracotta-700"
+		>
+			Shop Now
+			<svg
+				width="18"
+				height="12"
+				viewBox="0 0 18 12"
+				fill="none"
+				aria-hidden="true"
+				class="transition-transform duration-300 group-hover:translate-x-1"
+			>
+				<path
+					d="M0 6h16M11.5 1l5 5-5 5"
+					stroke="currentColor"
+					stroke-width="1.3"
+					stroke-linecap="round"
+					stroke-linejoin="round"></path>
+			</svg>
+		</a>
+	</div>
+</section>

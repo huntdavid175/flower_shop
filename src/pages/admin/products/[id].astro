@@ -1,0 +1,491 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import {
+	cedisFieldToPesewas,
+	createProduct,
+	deleteProductImage,
+	getAdminProduct,
+	getCategoryOptions,
+	pesewasToCedisField,
+	saveVariants,
+	toSlug,
+	updateProduct,
+	uploadProductImage,
+	type AdminProduct,
+	type VariantInput,
+} from '../../../lib/products-admin';
+
+const staff = Astro.locals.staff!;
+const id = String(Astro.params.id ?? '');
+const isNew = id === 'new';
+
+let product: AdminProduct | null = null;
+if (!isNew) {
+	product = await getAdminProduct(id);
+	if (!product) return new Response('Product not found', { status: 404 });
+}
+
+const categories = await getCategoryOptions();
+
+// What the form shows: the submitted values on a failed save, otherwise what is
+// stored — so a rejected save never costs the shop their typing.
+let values = {
+	name: product?.name ?? '',
+	slug: product?.slug ?? '',
+	sku: product?.sku ?? '',
+	description: product?.description ?? '',
+	deliveryInformation: product?.deliveryInformation ?? '',
+	categoryId: product?.categoryId ?? '',
+	basePrice: pesewasToCedisField(product?.basePricePesewas),
+	comparePrice: pesewasToCedisField(product?.comparePricePesewas),
+	isActive: product ? product.isActive : true,
+	sortOrder: String(product?.sortOrder ?? 0),
+};
+
+let variantRows: Array<{ id: string; label: string; price: string; isActive: boolean }> =
+	product?.variants.map((v) => ({
+		id: v.id,
+		label: v.label,
+		price: pesewasToCedisField(v.pricePesewas),
+		isActive: v.isActive,
+	})) ?? [{ id: '', label: '', price: '', isActive: true }];
+
+let problem: string | null = null;
+let notice: string | null = null;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const text = (key: string) => String(form.get(key) ?? '').trim();
+
+	values = {
+		name: text('name'),
+		slug: text('slug'),
+		sku: text('sku'),
+		description: text('description'),
+		deliveryInformation: text('deliveryInformation'),
+		categoryId: text('categoryId'),
+		basePrice: text('basePrice'),
+		comparePrice: text('comparePrice'),
+		isActive: form.get('isActive') === 'on',
+		sortOrder: text('sortOrder'),
+	};
+
+	/*
+	 * Variant rows arrive as parallel arrays — the ids line up with the labels
+	 * and prices by position, which is how repeated form fields work.
+	 */
+	const ids = form.getAll('variantId').map(String);
+	const labels = form.getAll('variantLabel').map(String);
+	const prices = form.getAll('variantPrice').map(String);
+	const actives = form.getAll('variantActive').map(String);
+
+	variantRows = labels.map((label, index) => ({
+		id: ids[index] ?? '',
+		label: label.trim(),
+		price: (prices[index] ?? '').trim(),
+		// A checkbox sends nothing when unticked, so its position cannot be
+		// trusted — the row's own id is carried in the value instead.
+		isActive: actives.includes(ids[index] || `new-${index}`),
+	}));
+
+	// Blank rows are how someone leaves the spare inputs alone, not an error.
+	const filled = variantRows.filter((row) => row.label || row.price);
+
+	const basePricePesewas = cedisFieldToPesewas(values.basePrice);
+	const comparePricePesewas = values.comparePrice
+		? cedisFieldToPesewas(values.comparePrice)
+		: null;
+
+	const variants: VariantInput[] = [];
+	for (const [index, row] of filled.entries()) {
+		const pricePesewas = cedisFieldToPesewas(row.price);
+		if (!row.label) { problem = 'Every size needs a name.'; break; }
+		if (pricePesewas === null) { problem = `Give “${row.label}” a price.`; break; }
+		variants.push({
+			id: row.id || undefined,
+			label: row.label,
+			pricePesewas,
+			isActive: row.isActive,
+			sortOrder: index,
+		});
+	}
+
+	if (!problem && values.name.length < 2) problem = 'Give the bouquet a name.';
+	if (!problem && basePricePesewas === null) problem = 'Give the bouquet a price.';
+	if (!problem && values.comparePrice && comparePricePesewas === null) {
+		problem = 'That “was” price is not a number.';
+	}
+	if (
+		!problem &&
+		comparePricePesewas !== null &&
+		basePricePesewas !== null &&
+		comparePricePesewas <= basePricePesewas
+	) {
+		// A strike-through price below the real one reads as a price rise.
+		problem = 'The “was” price has to be higher than the price you are charging.';
+	}
+
+	if (!problem) {
+		try {
+			/*
+			 * The slug is only derived when creating, or when the field was left
+			 * empty. Regenerating it from the name on every save would change a
+			 * product's public address the moment someone fixes a typo, breaking
+			 * every link already pointing at it.
+			 */
+			const slug = values.slug ? toSlug(values.slug) : toSlug(values.name);
+			if (!slug) throw new Error('That name has no letters or numbers to build a web address from.');
+
+			const upload = form.get('image');
+			let imageUrl: string | null | undefined;
+			if (upload instanceof File && upload.size > 0) {
+				imageUrl = await uploadProductImage(upload);
+			} else if (form.get('removeImage') === 'on') {
+				imageUrl = null;
+			}
+
+			const input = {
+				name: values.name,
+				slug,
+				sku: values.sku || null,
+				description: values.description || null,
+				deliveryInformation: values.deliveryInformation || null,
+				categoryId: values.categoryId || null,
+				basePricePesewas: basePricePesewas!,
+				comparePricePesewas,
+				isActive: values.isActive,
+				sortOrder: Number(values.sortOrder) || 0,
+				imageUrl,
+			};
+
+			const productId = isNew ? await createProduct(input) : id;
+			if (!isNew) await updateProduct(id, input);
+			await saveVariants(productId, variants);
+
+			// The old photograph is only removed once the new one is safely stored.
+			if (imageUrl !== undefined && product?.imageUrl && product.imageUrl !== imageUrl) {
+				await deleteProductImage(product.imageUrl);
+			}
+
+			return Astro.redirect(`/admin/products/${productId}?saved=1`, 303);
+		} catch (cause) {
+			const message = cause instanceof Error ? cause.message : 'Could not save.';
+			problem = message.includes('duplicate key') && message.includes('slug')
+				? 'Another bouquet already uses that web address. Change the slug.'
+				: message;
+		}
+	}
+}
+
+if (Astro.url.searchParams.get('saved')) notice = 'Saved.';
+
+const label = 'block text-[0.9375rem] font-medium text-forest-700';
+const field =
+	'mt-2 w-full rounded-none border border-forest-700 bg-white px-4 py-3 text-[0.9375rem] text-forest-900 outline-none transition-colors duration-200 focus:border-terracotta-700';
+const card = 'border border-forest-700/25 bg-white p-6';
+---
+
+<AdminLayout
+	title={isNew ? 'Add a bouquet' : (product?.name ?? 'Product')}
+	staffName={staff.name ?? staff.email}
+>
+	<a
+		href="/admin/products"
+		class="text-[0.875rem] text-forest-700 underline underline-offset-4 hover:text-terracotta-700"
+	>
+		← All products
+	</a>
+
+	<div class="mt-4 flex flex-wrap items-baseline justify-between gap-4">
+		<h1 class="font-display text-[1.875rem] text-forest-900">
+			{isNew ? 'Add a bouquet' : product?.name}
+		</h1>
+		{
+			!isNew && product && (
+				<a
+					href={`/shop/${product.slug}`}
+					target="_blank"
+					rel="noopener"
+					class="text-[0.875rem] text-forest-700 underline underline-offset-4 hover:text-terracotta-700"
+				>
+					View in the shop ↗
+				</a>
+			)
+		}
+	</div>
+
+	{
+		notice && (
+			<p class="mt-5 border border-forest-700 bg-white px-5 py-3 text-[0.9375rem] text-forest-700">
+				{notice}
+			</p>
+		)
+	}
+	{
+		problem && (
+			<p
+				class="mt-5 border border-terracotta-700 bg-white px-5 py-3 text-[0.9375rem] text-terracotta-700"
+				role="alert"
+			>
+				{problem}
+			</p>
+		)
+	}
+
+	<form method="post" enctype="multipart/form-data" class="mt-8 grid gap-6 lg:grid-cols-[1.6fr_1fr] lg:items-start">
+		<div class="space-y-6">
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">The bouquet</h2>
+
+				<label class="mt-5 block">
+					<span class={label}>Name</span>
+					<input type="text" name="name" value={values.name} required class={field} />
+				</label>
+
+				<label class="mt-5 block">
+					<span class={label}>
+						Web address
+						<span class="font-normal text-forest-700/60">
+							(leave empty and we will build it from the name)
+						</span>
+					</span>
+					<input
+						type="text"
+						name="slug"
+						value={values.slug}
+						placeholder="rose-elegance"
+						class={`${field} font-mono text-[0.875rem]`}
+					/>
+					{!isNew && (
+						<span class="mt-1.5 block text-[0.8125rem] text-forest-700/60">
+							Changing this breaks any link or printed card pointing at the old one.
+						</span>
+					)}
+				</label>
+
+				<label class="mt-5 block">
+					<span class={label}>Description</span>
+					<textarea name="description" rows="4" class={field}>{values.description}</textarea>
+				</label>
+
+				<label class="mt-5 block">
+					<span class={label}>
+						Delivery information
+						<span class="font-normal text-forest-700/60">(optional)</span>
+					</span>
+					<textarea name="deliveryInformation" rows="3" class={field}
+						>{values.deliveryInformation}</textarea
+					>
+				</label>
+			</section>
+
+			{/* --- Sizes and prices --- */}
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">Sizes and prices</h2>
+				<p class="mt-2 text-[0.875rem] text-forest-700/70">
+					What the customer chooses between. A bouquet with no sizes cannot be
+					added to a basket.
+				</p>
+
+				<div class="mt-5 space-y-3" data-variants>
+					{variantRows.map((row, index) => (
+						<div class="grid grid-cols-[1fr_9rem_auto] items-end gap-3" data-variant-row>
+							<input type="hidden" name="variantId" value={row.id} />
+							<label>
+								<span class="text-[0.8125rem] text-forest-700/70">Size</span>
+								<input
+									type="text"
+									name="variantLabel"
+									value={row.label}
+									placeholder="Medium"
+									class={`${field} mt-1`}
+								/>
+							</label>
+							<label>
+								<span class="text-[0.8125rem] text-forest-700/70">Price (GHS)</span>
+								<input
+									type="text"
+									inputmode="decimal"
+									name="variantPrice"
+									value={row.price}
+									placeholder="79.00"
+									class={`${field} mt-1`}
+								/>
+							</label>
+							<label class="flex h-[3.25rem] items-center gap-2 whitespace-nowrap text-[0.875rem] text-forest-700">
+								<input
+									type="checkbox"
+									name="variantActive"
+									value={row.id || `new-${index}`}
+									checked={row.isActive}
+									class="accent-terracotta-700"
+								/>
+								On sale
+							</label>
+						</div>
+					))}
+				</div>
+
+				<button
+					type="button"
+					data-add-variant
+					class="mt-4 border border-forest-700 px-4 py-2 text-[0.875rem] font-semibold text-forest-700 transition-colors hover:bg-forest-700 hover:text-butter"
+				>
+					Add another size
+				</button>
+				<p class="mt-3 text-[0.8125rem] text-forest-700/60">
+					Clearing a size&rsquo;s name and price removes it. Past orders keep the
+					price they were charged.
+				</p>
+			</section>
+		</div>
+
+		{/* --- Photo, price, visibility --- */}
+		<aside class="space-y-6">
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">Photograph</h2>
+
+				{
+					product?.imageUrl && (
+						<>
+							<span class="mt-4 block aspect-7/8 w-full overflow-hidden bg-forest-700/10">
+								<img src={product.imageUrl} alt="" class="h-full w-full object-cover" />
+							</span>
+							<label class="mt-3 flex items-center gap-2 text-[0.875rem] text-forest-700">
+								<input type="checkbox" name="removeImage" class="accent-terracotta-700" />
+								Remove this photograph
+							</label>
+						</>
+					)
+				}
+
+				<label class="mt-4 block">
+					<span class="text-[0.8125rem] text-forest-700/70">
+						{product?.imageUrl ? 'Replace it' : 'Upload one'}
+					</span>
+					<input
+						type="file"
+						name="image"
+						accept="image/jpeg,image/png,image/webp,image/avif"
+						class="mt-2 block w-full text-[0.875rem] text-forest-700 file:mr-3 file:border file:border-forest-700 file:bg-white file:px-4 file:py-2 file:text-[0.875rem] file:font-semibold file:text-forest-700"
+					/>
+					<span class="mt-2 block text-[0.8125rem] text-forest-700/60">
+						JPEG, PNG, WebP or AVIF. Up to 5MB. Portrait suits the cards best.
+					</span>
+				</label>
+			</section>
+
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">Price</h2>
+
+				<label class="mt-4 block">
+					<span class={label}>Price (GHS)</span>
+					<input
+						type="text"
+						inputmode="decimal"
+						name="basePrice"
+						value={values.basePrice}
+						placeholder="59.00"
+						required
+						class={field}
+					/>
+					<span class="mt-1.5 block text-[0.8125rem] text-forest-700/60">
+						Used when there are no sizes, and as the starting point on the card.
+					</span>
+				</label>
+
+				<label class="mt-5 block">
+					<span class={label}>
+						Was <span class="font-normal text-forest-700/60">(optional)</span>
+					</span>
+					<input
+						type="text"
+						inputmode="decimal"
+						name="comparePrice"
+						value={values.comparePrice}
+						placeholder="79.00"
+						class={field}
+					/>
+					<span class="mt-1.5 block text-[0.8125rem] text-forest-700/60">
+						Shown struck through. Must be higher than the price.
+					</span>
+				</label>
+			</section>
+
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">Where it sits</h2>
+
+				<label class="mt-4 block">
+					<span class={label}>Category</span>
+					<select name="categoryId" class={field}>
+						<option value="">No category</option>
+						{categories.map((category) => (
+							<option value={category.id} selected={category.id === values.categoryId}>
+								{category.name}
+							</option>
+						))}
+					</select>
+				</label>
+
+				<div class="mt-5 grid grid-cols-2 gap-4">
+					<label class="block">
+						<span class={label}>Order</span>
+						<input type="number" name="sortOrder" value={values.sortOrder} class={field} />
+					</label>
+					<label class="block">
+						<span class={label}>Code</span>
+						<input type="text" name="sku" value={values.sku} class={field} />
+					</label>
+				</div>
+
+				<label class="mt-5 flex items-center gap-3 text-[0.9375rem] text-forest-700">
+					<input
+						type="checkbox"
+						name="isActive"
+						checked={values.isActive}
+						class="accent-terracotta-700"
+					/>
+					Show this in the shop
+				</label>
+			</section>
+
+			<button
+				type="submit"
+				class="w-full bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+			>
+				{isNew ? 'Create bouquet' : 'Save changes'}
+			</button>
+		</aside>
+	</form>
+</AdminLayout>
+
+<script>
+	/*
+	 * Adding a size clones the last row rather than building markup here, so the
+	 * new row can never drift from the one the server rendered.
+	 */
+	const list = document.querySelector<HTMLElement>('[data-variants]');
+	const button = document.querySelector<HTMLButtonElement>('[data-add-variant]');
+
+	button?.addEventListener('click', () => {
+		const rows = list?.querySelectorAll<HTMLElement>('[data-variant-row]');
+		const last = rows?.[rows.length - 1];
+		if (!last || !list) return;
+
+		const copy = last.cloneNode(true) as HTMLElement;
+		const unique = `new-${Date.now()}`;
+
+		copy.querySelectorAll<HTMLInputElement>('input').forEach((input) => {
+			if (input.name === 'variantId') input.value = '';
+			else if (input.name === 'variantActive') {
+				// Ties the checkbox to this row alone; unticked boxes submit nothing,
+				// so position cannot be used to match them up.
+				input.value = unique;
+				input.checked = true;
+			} else input.value = '';
+		});
+
+		list.appendChild(copy);
+		copy.querySelector<HTMLInputElement>('input[name="variantLabel"]')?.focus();
+	});
+</script>

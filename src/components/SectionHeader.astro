@@ -1,0 +1,53 @@
+---
+/*
+ * Heading plus trailing link, shared by the product sections so their type and
+ * spacing cannot drift apart.
+ */
+interface Props {
+	/** Matches the section's aria-labelledby. */
+	id: string;
+	title: string;
+	/** Omit both to render a heading with no trailing link. */
+	linkHref?: string;
+	linkLabel?: string;
+}
+
+const { id, title, linkHref, linkLabel } = Astro.props;
+const hasLink = Boolean(linkHref && linkLabel);
+---
+
+<div class="flex items-end justify-between gap-6">
+	<h2
+		id={id}
+		class="font-display text-[clamp(1.75rem,2.5vw,3rem)] leading-none text-forest-700"
+	>
+		{title}
+	</h2>
+
+	{
+		hasLink && (
+			<a
+				href={linkHref}
+				class="group inline-flex shrink-0 items-center gap-2 text-[0.9375rem] font-medium text-terracotta-600 transition-colors hover:text-terracotta-700"
+			>
+				{linkLabel}
+				<svg
+					width="16"
+					height="11"
+					viewBox="0 0 16 11"
+					fill="none"
+					aria-hidden="true"
+					class="transition-transform duration-300 group-hover:translate-x-1"
+				>
+					<path
+						d="M0 5.5h14M10 1l4.5 4.5L10 10"
+						stroke="currentColor"
+						stroke-width="1.3"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			</a>
+		)
+	}
+</div>

@@ -1,0 +1,91 @@
+---
+import '../styles/global.css';
+import { Font } from 'astro:assets';
+
+interface Props {
+	title: string;
+	staffName?: string | null;
+}
+
+const { title, staffName } = Astro.props;
+
+const nav = [
+	{ href: '/admin', label: 'Orders' },
+	{ href: '/admin/products', label: 'Products' },
+	{ href: '/admin/categories', label: 'Categories' },
+	{ href: '/admin/reports', label: 'Reports' },
+];
+
+const here = Astro.url.pathname;
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		{/* The shop's own screens have no business in a search index. */}
+		<meta name="robots" content="noindex,nofollow" />
+		<title>{title} — La Fleur admin</title>
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<Font cssVariable="--font-playfair" preload />
+		<Font cssVariable="--font-montserrat" preload />
+		<Font cssVariable="--font-parisienne" preload />
+	</head>
+
+	<body class="min-h-screen bg-butter font-body text-forest-900">
+		<header class="border-b border-forest-700/25 bg-white">
+			<div
+				class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-8 gap-y-3 px-5 py-4 sm:px-8"
+			>
+				<a href="/admin" class="font-logo text-[1.75rem] leading-none text-forest-900">
+					La Fleur
+					<span class="font-body text-[0.75rem] font-medium tracking-wide text-forest-700/60">
+						ADMIN
+					</span>
+				</a>
+
+				<nav class="flex items-center gap-6">
+					{
+						nav.map((item) => (
+							<a
+								href={item.href}
+								class:list={[
+									'text-[0.9375rem] transition-colors',
+									here === item.href || (item.href !== '/admin' && here.startsWith(item.href))
+										? 'font-semibold text-terracotta-700'
+										: 'text-forest-700 hover:text-terracotta-700',
+								]}
+							>
+								{item.label}
+							</a>
+						))
+					}
+				</nav>
+
+				<div class="ml-auto flex items-center gap-4">
+					{
+						staffName && (
+							<span class="hidden text-[0.875rem] text-forest-700/70 sm:inline">
+								{staffName}
+							</span>
+						)
+					}
+					<form method="post" action="/api/admin/sign-out">
+						<button
+							type="submit"
+							class="text-[0.875rem] text-forest-700 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+						>
+							Sign out
+						</button>
+					</form>
+				</div>
+			</div>
+		</header>
+
+		<main class="mx-auto max-w-7xl px-5 py-10 sm:px-8">
+			<slot />
+		</main>
+	</body>
+</html>

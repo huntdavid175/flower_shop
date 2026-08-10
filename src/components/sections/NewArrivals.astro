@@ -1,0 +1,26 @@
+---
+import ProductCard from '../ProductCard.astro';
+import SectionHeader from '../SectionHeader.astro';
+import { getProducts } from '../../lib/catalog';
+
+const newArrivals = await getProducts({ limit: 4 });
+---
+
+<section aria-labelledby="new-arrivals" class="bg-butter py-20 lg:py-28">
+	<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+		<SectionHeader
+			id="new-arrivals"
+			title="New Arrivals"
+			linkHref="/shop"
+			linkLabel="See All Bouquets"
+		/>
+
+		{/* One column on phones, two from 640px, four only on the very wide
+		    layout — the same 1920px switch the header uses. */}
+		<ul
+			class="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:mt-12 3xl:grid-cols-4"
+		>
+			{newArrivals.map((product) => <ProductCard product={product} />)}
+		</ul>
+	</div>
+</section>

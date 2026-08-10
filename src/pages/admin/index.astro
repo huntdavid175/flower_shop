@@ -1,0 +1,202 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { listOrders, STATUS_LABELS } from '../../lib/admin';
+import { formatPesewas } from '../../lib/money';
+import { DELIVERY_SLOTS } from '../../lib/checkout';
+
+// The middleware guarantees this; pages never re-check.
+const staff = Astro.locals.staff!;
+
+const status = Astro.url.searchParams.get('status') ?? 'open';
+const page = Math.max(Number(Astro.url.searchParams.get('page') ?? 1), 1);
+const perPage = 25;
+
+/*
+ * "Open" is the view the shop actually works from: everything paid for that has
+ * not yet reached the recipient. Landing on a list of all orders ever placed
+ * would mean scrolling past last month to find today.
+ */
+const OPEN = ['paid', 'preparing', 'out_for_delivery'];
+
+const filters = [
+	{ value: 'open', label: 'To fulfil' },
+	{ value: 'paid', label: 'Paid' },
+	{ value: 'preparing', label: 'Preparing' },
+	{ value: 'out_for_delivery', label: 'Out for delivery' },
+	{ value: 'delivered', label: 'Delivered' },
+	{ value: 'pending_payment', label: 'Awaiting payment' },
+	{ value: 'all', label: 'Everything' },
+];
+
+let rows: Awaited<ReturnType<typeof listOrders>>['rows'] = [];
+let total = 0;
+
+if (status === 'open') {
+	const results = await Promise.all(
+		OPEN.map((one) => listOrders({ status: one, limit: perPage })),
+	);
+	rows = results
+		.flatMap((result) => result.rows)
+		// Soonest delivery first — the shop works to the delivery date, not to
+		// when the order happened to come in.
+		.sort((a, b) => (a.deliveryDate ?? '9999').localeCompare(b.deliveryDate ?? '9999'));
+	total = results.reduce((sum, result) => sum + result.total, 0);
+} else {
+	const result = await listOrders({
+		status,
+		limit: perPage,
+		offset: (page - 1) * perPage,
+	});
+	rows = result.rows;
+	total = result.total;
+}
+
+const pages = Math.max(Math.ceil(total / perPage), 1);
+const slotLabel = (value: string | null) =>
+	DELIVERY_SLOTS.find((slot) => slot.value === value)?.label.split(' ')[0] ?? '';
+
+const today = new Date().toISOString().slice(0, 10);
+
+const badge: Record<string, string> = {
+	paid: 'bg-forest-700 text-butter',
+	preparing: 'bg-clay-600 text-white',
+	out_for_delivery: 'bg-terracotta-600 text-white',
+	delivered: 'bg-forest-300 text-forest-950',
+	pending_payment: 'bg-sand text-forest-900',
+	cancelled: 'bg-forest-700/15 text-forest-700',
+	refunded: 'bg-forest-700/15 text-forest-700',
+	draft: 'bg-forest-700/10 text-forest-700/70',
+};
+---
+
+<AdminLayout title="Orders" staffName={staff.name ?? staff.email}>
+	<div class="flex flex-wrap items-baseline justify-between gap-4">
+		<h1 class="font-display text-[1.875rem] text-forest-900">Orders</h1>
+		<p class="text-[0.9375rem] text-forest-700/70">
+			{total}
+			{total === 1 ? 'order' : 'orders'}
+		</p>
+	</div>
+
+	<div class="mt-6 flex flex-wrap gap-2">
+		{
+			filters.map((filter) => (
+				<a
+					href={`/admin?status=${filter.value}`}
+					class:list={[
+						'border px-4 py-2 text-[0.875rem] transition-colors',
+						status === filter.value
+							? 'border-terracotta-700 bg-terracotta-700 text-white'
+							: 'border-forest-700/40 text-forest-700 hover:border-forest-700',
+					]}
+				>
+					{filter.label}
+				</a>
+			))
+		}
+	</div>
+
+	{
+		rows.length === 0 ? (
+			<p class="mt-10 border border-forest-700/25 bg-white p-8 text-center text-[0.9375rem] text-forest-700/70">
+				Nothing here yet.
+			</p>
+		) : (
+			<div class="mt-6 overflow-x-auto border border-forest-700/25 bg-white">
+				<table class="w-full min-w-[52rem] border-collapse text-left">
+					<thead>
+						<tr class="border-b border-forest-700/20 text-[0.8125rem] uppercase tracking-wide text-forest-700/60">
+							<th class="px-5 py-3 font-medium">Order</th>
+							<th class="px-5 py-3 font-medium">For</th>
+							<th class="px-5 py-3 font-medium">Delivery</th>
+							<th class="px-5 py-3 font-medium">Status</th>
+							<th class="px-5 py-3 text-right font-medium">Total</th>
+						</tr>
+					</thead>
+					<tbody>
+						{rows.map((row) => (
+							<tr class="border-b border-forest-700/10 last:border-0 hover:bg-butter/60">
+								<td class="px-5 py-4 align-top">
+									<a
+										href={`/admin/orders/${row.reference}`}
+										class="font-medium text-forest-900 underline underline-offset-4 hover:text-terracotta-700"
+									>
+										{row.reference}
+									</a>
+									<span class="mt-1 block text-[0.8125rem] text-forest-700/60">
+										{row.itemCount} {row.itemCount === 1 ? 'bouquet' : 'bouquets'}
+										{row.hasVoice && (
+											<span class="ml-2 text-terracotta-700" title="Has a voice message">
+												● voice
+											</span>
+										)}
+									</span>
+								</td>
+
+								<td class="px-5 py-4 align-top text-[0.9375rem] text-forest-700">
+									{row.recipientName ?? '—'}
+									<span class="mt-1 block text-[0.8125rem] text-forest-700/60">
+										from {row.buyerName ?? '—'}
+									</span>
+								</td>
+
+								<td class="px-5 py-4 align-top text-[0.9375rem] text-forest-700">
+									{row.deliveryDate ?? '—'}
+									{row.deliveryDate && row.deliveryDate < today && row.status !== 'delivered' && (
+										<span class="ml-2 text-[0.75rem] font-semibold uppercase text-terracotta-700">
+											overdue
+										</span>
+									)}
+									<span class="mt-1 block text-[0.8125rem] text-forest-700/60">
+										{slotLabel(row.deliverySlot)}
+									</span>
+								</td>
+
+								<td class="px-5 py-4 align-top">
+									<span
+										class:list={[
+											'inline-block px-3 py-1 text-[0.8125rem] font-medium',
+											badge[row.status] ?? 'bg-forest-700/10 text-forest-700',
+										]}
+									>
+										{STATUS_LABELS[row.status] ?? row.status}
+									</span>
+								</td>
+
+								<td class="px-5 py-4 text-right align-top text-[0.9375rem] font-medium text-forest-900">
+									{formatPesewas(row.totalPesewas)}
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		)
+	}
+
+	{
+		status !== 'open' && pages > 1 && (
+			<div class="mt-6 flex items-center justify-between text-[0.875rem]">
+				<a
+					href={`/admin?status=${status}&page=${page - 1}`}
+					class:list={[
+						'underline underline-offset-4',
+						page <= 1 ? 'pointer-events-none opacity-40' : 'text-forest-700 hover:text-terracotta-700',
+					]}
+				>
+					Previous
+				</a>
+				<span class="text-forest-700/60">Page {page} of {pages}</span>
+				<a
+					href={`/admin?status=${status}&page=${page + 1}`}
+					class:list={[
+						'underline underline-offset-4',
+						page >= pages ? 'pointer-events-none opacity-40' : 'text-forest-700 hover:text-terracotta-700',
+					]}
+				>
+					Next
+				</a>
+			</div>
+		)
+	}
+</AdminLayout>

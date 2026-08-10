@@ -1,0 +1,298 @@
+---
+import SocialIcon from './SocialIcon.astro';
+
+const explore = [
+	{ label: 'Home', href: '/' },
+	{ label: 'About Us', href: '/about' },
+	{ label: 'Shop', href: '/shop' },
+	{ label: 'Shop Details', href: '/shop/rose-elegance' },
+];
+
+const support = [
+	{ label: 'How It Works', href: '/guide' },
+	{ label: 'FAQ', href: '/faq' },
+	{ label: 'Contact', href: '/contact' },
+	{ label: '404', href: '/404' },
+];
+
+const socials = [
+	{ name: 'facebook' as const, label: 'Facebook', href: 'https://facebook.com' },
+	{ name: 'x' as const, label: 'X', href: 'https://x.com' },
+	{ name: 'youtube' as const, label: 'YouTube', href: 'https://youtube.com' },
+	{ name: 'linkedin' as const, label: 'LinkedIn', href: 'https://linkedin.com' },
+];
+
+const hours = [
+	{ days: 'Mon - Fri', time: '10am - 7pm' },
+	{ days: 'Saturday', time: '10am - 2pm' },
+];
+
+const address = ['Aurora Valley, Westford Heights,', 'Greenlake County, 48219'];
+
+// Set by /api/newsletter after a submission.
+const newsletterStatus = Astro.url.searchParams.get('newsletter');
+
+// Shared container geometry, matching the rest of the page.
+const container = 'px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page';
+const columnHeading =
+	'font-display text-[clamp(1.25rem,1.5vw,1.75rem)] leading-none text-white';
+const footerLink =
+	'text-[0.9375rem] text-white/65 transition-colors hover:text-white';
+---
+
+<footer class="bg-forest-950">
+	{/* --- Newsletter --- */}
+	<section aria-labelledby="newsletter" class="bg-plum">
+		<div class={`${container} py-14 lg:py-16`}>
+			<div class="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-10">
+				<h2 id="newsletter" class="text-[0.9375rem] font-semibold text-white">
+					Newsletter
+				</h2>
+				<p
+					class="font-display text-[clamp(1.25rem,1.6vw,2rem)] leading-[1.35] text-white"
+				>
+					Get informed about the best events and special offers only our
+					subscribers have.
+				</p>
+			</div>
+
+			<form
+				method="post"
+				action="/api/newsletter"
+				class="mt-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:gap-10 lg:mt-10"
+			>
+				<div class="flex-1">
+					<label for="newsletter-email" class="sr-only">Email address</label>
+					<input
+						id="newsletter-email"
+						name="email"
+						type="email"
+						required
+						autocomplete="email"
+						placeholder="Enter Your Email Address"
+						class="w-full border-b border-white/25 bg-transparent pb-4 text-[0.9375rem] text-white transition-colors outline-none placeholder:text-white/45 focus:border-white"
+					/>
+				</div>
+
+				<button
+					type="submit"
+					class="group inline-flex shrink-0 items-center justify-center gap-3 bg-terracotta-600 px-7 py-4 text-[0.875rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-700"
+				>
+					Subscribe Now
+					<svg
+						width="18"
+						height="12"
+						viewBox="0 0 18 12"
+						fill="none"
+						aria-hidden="true"
+						class="transition-transform duration-300 group-hover:translate-x-1"
+					>
+						<path
+							d="M0 6h16M11.5 1l5 5-5 5"
+							stroke="currentColor"
+							stroke-width="1.3"
+							stroke-linecap="round"
+							stroke-linejoin="round"></path>
+					</svg>
+				</button>
+			</form>
+
+			<p aria-live="polite" class="mt-4 text-[0.875rem] text-white/80">
+				{newsletterStatus === 'ok' && 'Thanks — you’re on the list.'}
+				{
+					newsletterStatus === 'invalid' &&
+						'That email address doesn’t look right. Please check it and try again.'
+				}
+			</p>
+		</div>
+	</section>
+
+	{/* --- Link columns and socials --- */}
+	<div class="border-b border-white/10">
+		<div class={container}>
+			<div class="grid lg:grid-cols-[1.25fr_1fr_1.3fr]">
+				<nav
+					aria-label="Explore"
+					class="py-10 lg:border-r lg:border-white/10 lg:py-12 lg:pr-10"
+				>
+					<h2 class={columnHeading}>Explore</h2>
+					<ul class="mt-6 space-y-3">
+						{
+							explore.map(({ label, href }) => (
+								<li>
+									<a href={href} class={footerLink}>
+										{label}
+									</a>
+								</li>
+							))
+						}
+					</ul>
+				</nav>
+
+				<nav
+					aria-label="Support"
+					class="border-t border-white/10 py-10 lg:border-t-0 lg:border-r lg:border-white/10 lg:px-10 lg:py-12"
+				>
+					<h2 class={columnHeading}>Support</h2>
+					<ul class="mt-6 space-y-3">
+						{
+							support.map(({ label, href }) => (
+								<li>
+									<a href={href} class={footerLink}>
+										{label}
+									</a>
+								</li>
+							))
+						}
+					</ul>
+				</nav>
+
+				{/*
+				  2x2 cell block on desktop. The internal rules come from nth-child
+				  rather than divide-* utilities: divide-x/y follow DOM order and would
+				  draw a line between every sibling, not the grid pattern we need —
+				  a right edge on the odd cells and a bottom edge on the first row.
+				*/}
+				<ul
+					class="grid grid-cols-4 border-t border-white/10 py-8 lg:grid-cols-2 lg:border-t-0 lg:py-0"
+				>
+					{
+						socials.map(({ name, label, href }) => (
+							<li class="lg:border-white/10 lg:[&:nth-child(-n+2)]:border-b lg:[&:nth-child(odd)]:border-r">
+								<a
+									href={href}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-center justify-center py-4 lg:py-10"
+								>
+									<span class="sr-only">{label}</span>
+									<span
+										class="flex size-11 items-center justify-center rounded-full bg-white/8 text-white transition-colors duration-300 hover:bg-white/20"
+									>
+										<SocialIcon name={name} />
+									</span>
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+		</div>
+	</div>
+
+	{/* --- Visit / hours / contact --- */}
+	<div class="border-b border-white/10">
+		<div class={`${container} grid gap-10 py-12 md:grid-cols-3 lg:py-14`}>
+			<section aria-labelledby="visit-us">
+				<h2 id="visit-us" class={columnHeading}>Visit Us</h2>
+				<address class="mt-5 text-[0.9375rem] leading-[1.7] text-white/65 not-italic">
+					{address.map((line) => <span class="block">{line}</span>)}
+				</address>
+				<a
+					href="https://maps.google.com"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="group mt-6 inline-flex items-center gap-3 bg-terracotta-600 px-6 py-3 text-[0.875rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-700"
+				>
+					Get Directions
+					<svg
+						width="18"
+						height="12"
+						viewBox="0 0 18 12"
+						fill="none"
+						aria-hidden="true"
+						class="transition-transform duration-300 group-hover:translate-x-1"
+					>
+						<path
+							d="M0 6h16M11.5 1l5 5-5 5"
+							stroke="currentColor"
+							stroke-width="1.3"
+							stroke-linecap="round"
+							stroke-linejoin="round"></path>
+					</svg>
+				</a>
+			</section>
+
+			<section aria-labelledby="opening-hours">
+				<h2 id="opening-hours" class={columnHeading}>Opening Hours</h2>
+				<dl class="mt-5 max-w-[16rem] text-[0.9375rem]">
+					{
+						hours.map(({ days, time }, index) => (
+							<div
+								class:list={[
+									'flex items-baseline gap-3 py-3',
+									index === 0 && 'border-b border-white/15',
+								]}
+							>
+								<dt class="font-semibold text-white">{days} :</dt>
+								<dd class="text-white/65">{time}</dd>
+							</div>
+						))
+					}
+				</dl>
+			</section>
+
+			<section aria-labelledby="get-in-touch">
+				<h2 id="get-in-touch" class={columnHeading}>Get In Touch</h2>
+				<ul class="mt-5 space-y-4">
+					<li class="flex items-start gap-4">
+						<svg
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							aria-hidden="true"
+							class="mt-0.5 shrink-0 text-terracotta-600"
+						>
+							<path
+								d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"
+							></path>
+						</svg>
+						<span>
+							<a
+								href="tel:+12345678900"
+								class="block text-[0.9375rem] font-semibold text-white transition-colors hover:text-terracotta-600"
+							>
+								+(123) 456 789 00
+							</a>
+							<span class="text-[0.8125rem] text-white/55">Phone number</span>
+						</span>
+					</li>
+
+					<li class="flex items-start gap-4">
+						<svg
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							aria-hidden="true"
+							class="mt-0.5 shrink-0 text-terracotta-600"
+						>
+							<path
+								d="M21.4 2.6 2.9 9.7c-.7.3-.7 1.3.02 1.5l4.6 1.5 1.7 5c.24.7 1.14.8 1.53.2l2.3-3.1 4.8 3.5c.5.4 1.2.1 1.35-.5l3-14c.15-.7-.5-1.3-1.1-1.2z"
+							></path>
+						</svg>
+						<span>
+							<a
+								href="mailto:info@lafleur.com"
+								class="block text-[0.9375rem] font-semibold text-white transition-colors hover:text-terracotta-600"
+							>
+								info@lafleur.com
+							</a>
+							<span class="text-[0.8125rem] text-white/55">Email address</span>
+						</span>
+					</li>
+				</ul>
+			</section>
+		</div>
+	</div>
+
+	{/* --- Copyright --- */}
+	<div class={`${container} py-5`}>
+		<p class="text-center text-[0.875rem] text-white/55">
+			Copyright &amp; Design By <span class="font-semibold text-white"
+				>@Mezario</span
+			> - 2025
+		</p>
+	</div>
+</footer>

@@ -1,0 +1,207 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import { countProducts, getCategories, getProducts } from '../../lib/catalog';
+
+/*
+ * "Load More" works off a `show` count in the URL rather than client-side
+ * state, so a shared or reloaded link renders the same set of products and the
+ * page keeps working without JavaScript.
+ */
+const PAGE_SIZE = 8;
+
+const requested = Number(Astro.url.searchParams.get('show'));
+
+// The category filter comes from the URL, so it is validated against the real
+// list rather than passed to the database as given.
+const requestedCategory = Astro.url.searchParams.get('category');
+const categories = await getCategories();
+const activeCategory =
+	categories.find((category) => category.slug === requestedCategory) ?? null;
+
+const total = await countProducts(activeCategory?.slug ?? null);
+
+const show =
+	Number.isInteger(requested) && requested > 0
+		? Math.min(requested, total)
+		: Math.min(PAGE_SIZE, total);
+
+const visible = await getProducts({
+	limit: show,
+	categorySlug: activeCategory?.slug ?? null,
+});
+
+const hasMore = show < total;
+const nextShow = Math.min(show + PAGE_SIZE, total);
+
+/** Preserve the category when paging. */
+const nextHref = activeCategory
+	? `?category=${activeCategory.slug}&show=${nextShow}`
+	: `?show=${nextShow}`;
+
+const title = activeCategory ? activeCategory.name : 'Shop';
+const subtitle = activeCategory
+	? `${total} ${total === 1 ? 'piece' : 'pieces'} in ${activeCategory.name.toLowerCase()}.`
+	: 'Beautiful bouquets at special prices.';
+
+const filterBase = 'px-4 py-2 text-[0.875rem] transition-colors duration-200';
+---
+
+<Layout title={`${title} — La Fleur`} description={subtitle}>
+	<section class="bg-butter py-16 lg:py-20">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<PageHeader title={title} subtitle={subtitle} />
+
+			<nav aria-label="Filter by category" class="mt-10 flex justify-center">
+				<ul class="flex flex-wrap justify-center gap-2">
+					<li>
+						<a
+							href="/shop"
+							aria-current={activeCategory ? undefined : 'page'}
+							class:list={[
+								filterBase,
+								activeCategory
+									? 'border border-forest-700/30 text-forest-700 hover:border-forest-700'
+									: 'border border-forest-700 bg-forest-700 font-semibold text-butter',
+							]}
+						>
+							All
+						</a>
+					</li>
+					{
+						categories.map((category) => (
+							<li>
+								<a
+									href={`/shop?category=${category.slug}`}
+									aria-current={
+										activeCategory?.slug === category.slug ? 'page' : undefined
+									}
+									class:list={[
+										filterBase,
+										activeCategory?.slug === category.slug
+											? 'border border-forest-700 bg-forest-700 font-semibold text-butter'
+											: 'border border-forest-700/30 text-forest-700 hover:border-forest-700',
+									]}
+								>
+									{category.name}
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</nav>
+
+			{
+				visible.length === 0 ? (
+					<p class="mt-16 text-center text-[0.9375rem] text-forest-700">
+						Nothing in this category yet.
+					</p>
+				) : (
+					<ul
+						id="product-grid"
+						class="mt-[clamp(3rem,6vw,8rem)] grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-y-14 3xl:grid-cols-4"
+					>
+						{visible.map((product) => (
+							<ProductCard product={product} />
+						))}
+					</ul>
+				)
+			}
+
+			{
+				hasMore && (
+					<div class="mt-14 flex justify-center">
+						{/*
+						  A real link, so the page works without JavaScript and the URL
+						  stays shareable. The script below upgrades it to append in
+						  place — see the comment there.
+						*/}
+						<a
+							id="load-more"
+							href={nextHref}
+							rel="next"
+							class="bg-terracotta-700 px-8 py-4 text-[0.875rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600 aria-busy:opacity-70"
+						>
+							Load More
+						</a>
+					</div>
+				)
+			}
+		</div>
+	</section>
+</Layout>
+
+<script>
+	/*
+	 * Progressive enhancement for "Load More".
+	 *
+	 * The button is a normal link, so without JavaScript it simply navigates and
+	 * everything still works. Here we intercept the click, fetch the same URL,
+	 * and graft the new cards onto the existing grid — which keeps scroll
+	 * position instead of dropping the visitor back at the top of the page.
+	 *
+	 * The URL is kept in sync with replaceState so a reload or a shared link
+	 * shows the same set of products.
+	 */
+	const grid = document.getElementById('product-grid');
+	const button = document.getElementById('load-more');
+
+	if (grid && button instanceof HTMLAnchorElement) {
+		let loading = false;
+
+		button.addEventListener('click', async (event) => {
+			event.preventDefault();
+			if (loading) return;
+
+			const href = button.href;
+			const label = button.textContent;
+			loading = true;
+			button.setAttribute('aria-busy', 'true');
+			button.textContent = 'Loading…';
+
+			try {
+				const response = await fetch(href);
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+				const doc = new DOMParser().parseFromString(
+					await response.text(),
+					'text/html',
+				);
+				const incoming = doc.getElementById('product-grid');
+				if (!incoming) throw new Error('grid missing in response');
+
+				/*
+				 * The page returns every product up to `show`, not just the new page
+				 * of them, so only the tail is actually new. Slicing by the current
+				 * count is what stops the first cards being appended a second time.
+				 */
+				const added = Array.from(incoming.children).slice(grid.children.length);
+				added.forEach((card) => grid.append(card));
+
+				history.replaceState(null, '', href);
+
+				const nextButton = doc.getElementById('load-more');
+				if (nextButton instanceof HTMLAnchorElement) {
+					button.href = nextButton.href;
+					button.textContent = label;
+					button.removeAttribute('aria-busy');
+					loading = false;
+				} else {
+					/*
+					 * Nothing left to load. Remove the control, and move focus into the
+					 * first new card — otherwise a keyboard user is left with focus on
+					 * an element that no longer exists, which sends it back to <body>.
+					 */
+					button.remove();
+					const firstLink = added[0]?.querySelector('a');
+					if (firstLink instanceof HTMLElement) firstLink.focus();
+				}
+			} catch {
+				// Network or parse failure: fall back to the plain navigation the
+				// link would have performed anyway, rather than dead-ending.
+				window.location.href = href;
+			}
+		});
+	}
+</script>

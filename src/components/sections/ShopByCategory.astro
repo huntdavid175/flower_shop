@@ -1,0 +1,137 @@
+---
+import { getCategories } from '../../lib/catalog';
+
+const categories = await getCategories();
+
+const labelClass =
+	'font-display text-[clamp(1.25rem,1.6vw,1.875rem)] leading-none';
+---
+
+<section aria-labelledby="shop-by-category" class="bg-butter py-20 lg:py-28">
+	<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+		{/*
+		  Below 3xl this is a plain block: heading, then the tile grid. At 3xl the
+		  tile grid is display:none, leaving the heading and the list as the two
+		  grid columns — 2fr/3fr matches the 40/60 split measured off the design.
+		*/}
+		<div class="3xl:grid 3xl:grid-cols-[2fr_3fr] 3xl:gap-16">
+			<h2
+				id="shop-by-category"
+				class="mb-10 font-display text-[clamp(1.75rem,2.5vw,3rem)] leading-none text-forest-700 lg:mb-12 3xl:mb-0"
+			>
+				Shop by Category
+			</h2>
+
+			{/* --- Tiles: phones and everything up to 1920px --- */}
+			<ul class="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:gap-x-10 lg:gap-y-14 3xl:hidden">
+				{
+					categories.map(({ name, slug, image }) => (
+						<li>
+							<a href={`/shop?category=${slug}`} class="group block">
+								{/*
+								  No hover zoom here — the growing photo is the 3xl list's
+								  effect, and the tiles are shown flat.
+
+								  The source images carry their own green frame in the pixels
+								  (~1.6% of the width: 2px white, then ~7px green on a 641px
+								  file). `scale-[1.04]` overflows that baked frame past the
+								  clip so only this CSS border shows. It has to be cropped
+								  rather than reused — a baked border scales with the image,
+								  so it would render ~13px on a large tile and ~3px on the
+								  hover preview, while a CSS border stays put.
+								*/}
+								<div class="aspect-square overflow-hidden border-4 border-forest-700">
+									<img
+										src={image ?? ""}
+										alt={name}
+										loading="lazy"
+										decoding="async"
+										class="h-full w-full scale-[1.04] object-cover"
+									/>
+								</div>
+
+								<div class="rule-dashed mt-5 flex items-center justify-between gap-4 pb-8 text-forest-700 lg:mt-7 lg:pb-12">
+									<h3 class={labelClass}>{name}</h3>
+									<svg
+										width="40"
+										height="14"
+										viewBox="0 0 40 14"
+										fill="none"
+										aria-hidden="true"
+										class="shrink-0 text-terracotta-700 transition-transform duration-300 ease-out group-hover:translate-x-1"
+									>
+										<path
+											d="M0 7h37M31 1l6 6-6 6"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								</div>
+							</a>
+						</li>
+					))
+				}
+			</ul>
+
+			{/* --- List with hover preview: 1920px and up --- */}
+			<ul class="hidden 3xl:block">
+				{
+					categories.map(({ name, slug, image }) => (
+						/* The rule sits on the li so it spans the full column and keeps
+						   its colour while the label alone reacts to hover. The first
+						   item drops its top padding so it aligns with the heading. */
+						<li class="group rule-dashed relative pt-10 pb-7 text-forest-700 first:pt-0">
+							<a
+								href={`/shop?category=${slug}`}
+								class:list={[
+									labelClass,
+									'flex items-center justify-between gap-4 transition-colors duration-300 group-hover:text-terracotta-600',
+								]}
+							>
+								{name}
+
+								<svg
+									width="28"
+									height="28"
+									viewBox="0 0 24 24"
+									fill="none"
+									aria-hidden="true"
+									class="shrink-0 -translate-x-2 text-terracotta-700 opacity-0 transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:opacity-100"
+								>
+									<path
+										d="M6 18 18 6M8.5 6H18v9.5"
+										stroke="currentColor"
+										stroke-width="1.9"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							</a>
+
+							{/*
+							  Decorative hover preview. Deliberately taller than its row, so
+							  it breaks across the rules above and below as in the design —
+							  hence the z-index and pointer-events-none, which keep it above
+							  later rows without swallowing their clicks.
+							*/}
+							<div
+								class="pointer-events-none absolute top-1/2 left-[59%] z-20 aspect-5/6 w-56 -translate-x-1/2 -translate-y-1/2 scale-50 rotate-[-21deg] overflow-hidden border-[3px] border-forest-700 opacity-0 transition-[opacity,scale] duration-[900ms] ease-in-out group-hover:scale-100 group-hover:opacity-100"
+							>
+								<img
+									src={image ?? ""}
+									alt=""
+									aria-hidden="true"
+									loading="lazy"
+									decoding="async"
+									class="h-full w-full scale-[1.04] object-cover"
+								/>
+							</div>
+						</li>
+					))
+				}
+			</ul>
+		</div>
+	</div>
+</section>

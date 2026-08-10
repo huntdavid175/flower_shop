@@ -1,0 +1,170 @@
+@import 'tailwindcss';
+
+/*
+ * La Fleur design tokens, taken from the template screenshots.
+ *
+ * Components reference token names (bg-teal-700, text-cream, font-display)
+ * rather than raw hex, so a palette change stays a change to this file.
+ */
+@theme {
+	/* Deep teal — the hero ground. The photograph's own backdrop is this colour,
+	   which is why the section background can sit flush against the image edge. */
+	--color-teal-950: #04211f;
+	--color-teal-900: #06302d;
+	--color-teal-800: #073b38;
+	--color-teal-700: #0b4a46;
+	--color-teal-600: #0f5a55;
+	--color-teal-500: #146b65;
+
+	/* Terracotta — CTAs only. Used sparingly so it keeps its weight. */
+	--color-terracotta-600: #b04e2b;
+	--color-terracotta-700: #92401f;
+
+	/* Forest green — the catalog sections read green where the hero reads teal. */
+	--color-forest-950: #132a1f;
+	--color-forest-900: #163524;
+	--color-forest-700: #1f4d2f;
+	--color-forest-300: #8f9a8d;
+
+	/* Pale butter ground behind the product sections. */
+	--color-butter: #fdfbe8;
+
+	/* Kraft-paper panel behind the testimonial quotes. */
+	--color-sand: #ebdbbc;
+
+	/* Deep plum panel and its clay button, used by the "about" split section. */
+	--color-plum: #3e1f36;
+	--color-clay-600: #8b5c39;
+	--color-clay-700: #74492c;
+
+	/* Warm neutrals */
+	--color-cream: #f7f3ee;
+	--color-ink: #1c1b19;
+	--color-ink-muted: #6b6862;
+	--color-surface: #ffffff;
+	--color-surface-alt: #f7f3ee;
+	--color-border: #e5e0d8;
+
+	/*
+	 * Type. Astro's font pipeline publishes one variable per typeface
+	 * (--font-playfair, --font-montserrat, --font-parisienne); these alias them
+	 * to roles. The indirection is required, not stylistic:
+	 * Tailwind only generates a `font-x` utility for a `--font-x` declared in
+	 * @theme, and naming Astro's variables --font-display directly would make
+	 * that declaration circular.
+	 *
+	 * Swapping the wordmark is one line here — `--font-logo` is the only place
+	 * the script face is named.
+	 */
+	--font-display: var(--font-playfair);
+	--font-body: var(--font-montserrat);
+	--font-logo: var(--font-parisienne);
+
+	/* Hero scale. Dialled back from the raw screenshot measurements, which read
+	   oversized on real laptop and medium screens. Still fluid, with a lower
+	   growth rate and a lower cap. */
+	--text-hero: clamp(2rem, 2.85vw, 3.5rem);
+	--text-hero--line-height: 1.15;
+	--text-hero-body: clamp(0.9375rem, 0.95vw, 1.125rem);
+	--text-hero-body--line-height: 1.7;
+
+	/* The site nav only expands to inline links on very wide displays; below
+	   this it is a menu button. See SiteHeader.astro. */
+	--breakpoint-3xl: 120rem;
+
+	/* Content width on very large screens. Backgrounds and photography stay
+	   full-bleed; only the nav and the hero copy are reined in, so the line
+	   lengths stay readable instead of stretching across a 2560px monitor.
+	   Applied from 3xl up, so laptop and medium screens are unaffected.
+	   Turn this one number to widen or tighten the whole layout. */
+	--container-page: 90rem;
+}
+
+/*
+ * Dashed rule drawn as a background gradient rather than `border-bottom: dashed`.
+ * Browsers pick their own dash length for dashed borders — Chrome, Firefox and
+ * Safari all differ at 1px — so this is the only way to get the exact, stable
+ * dash in the design. Inherits currentColor.
+ */
+@utility rule-dashed {
+	background-image: repeating-linear-gradient(
+		to right,
+		currentColor 0 6px,
+		transparent 6px 11px
+	);
+	background-repeat: no-repeat;
+	background-size: 100% 1px;
+	background-position: 0 100%;
+}
+
+/*
+ * Shared geometry for the two full-bleed split sections (Trusted Boutique and
+ * Spring Blooms). Defined once so the seam between their panels lands at the
+ * same x on both — one has copy on the left, the other on the right, so a
+ * mismatched ratio makes the two dividing lines visibly disagree down the page.
+ *
+ * The height tracks viewport width (these are wide bands, not content boxes)
+ * with a floor so short viewports stay legible and a cap so very large screens
+ * do not get an absurdly deep panel.
+ */
+@utility split-section {
+	grid-template-columns: 48fr 52fr;
+	min-height: clamp(26rem, 35vw, 48rem);
+}
+
+/*
+ * Fine paper grain, layered over a background colour.
+ *
+ * Generated from an inline SVG turbulence filter rather than a bitmap: it costs
+ * no extra request, stays crisp at any pixel density, and `stitchTiles` makes
+ * the 160px tile repeat seamlessly instead of showing a visible grid. The noise
+ * is desaturated and held at low opacity so it mottles the colour underneath
+ * rather than greying it out.
+ */
+@utility texture-grain {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.16'/%3E%3C/svg%3E");
+	background-size: 160px 160px;
+	background-repeat: repeat;
+}
+
+@layer base {
+	body {
+		background-color: var(--color-surface);
+		color: var(--color-ink);
+		font-family: var(--font-body);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: var(--font-display);
+		font-weight: 400;
+	}
+
+	/*
+	 * Keyboard focus indicator.
+	 *
+	 * currentColor rather than a fixed colour: the ring then inherits whatever
+	 * the element's text colour is, which by definition already contrasts with
+	 * its background. A fixed cream ring worked on the dark hero but was all but
+	 * invisible on the butter pages and white form fields.
+	 */
+	:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 3px;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			scroll-behavior: auto !important;
+		}
+	}
+}

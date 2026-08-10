@@ -1,0 +1,450 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import { readCart, resolveCart } from '../../lib/cart';
+import { saveCheckoutDetails, syncDraftOrder } from '../../lib/orders';
+import { formatPesewas } from '../../lib/money';
+import {
+	DELIVERY_SLOTS,
+	earliestDeliveryDate,
+	getDeliveryZones,
+	latestDeliveryDate,
+	normalisePhone,
+	readCheckoutForm,
+	validateCheckout,
+	type CheckoutErrors,
+	type CheckoutValues,
+} from '../../lib/checkout';
+import { initializeTransaction, isPaystackConfigured } from '../../lib/paystack';
+
+const cart = await resolveCart(readCart(Astro.cookies));
+if (cart.lines.length === 0) return Astro.redirect('/cart', 303);
+
+const draft = await syncDraftOrder(Astro.cookies, cart);
+if (!draft) return Astro.redirect('/cart', 303);
+
+const zones = await getDeliveryZones();
+
+let values: CheckoutValues = {
+	buyerName: '',
+	buyerEmail: '',
+	buyerPhone: '',
+	recipientName: '',
+	recipientPhone: '',
+	deliveryAddress: '',
+	deliveryNotes: '',
+	deliveryZoneId: zones[0]?.id ?? '',
+	deliveryDate: earliestDeliveryDate(),
+	deliverySlot: DELIVERY_SLOTS[0].value,
+};
+let errors: CheckoutErrors = {};
+let formError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+	values = readCheckoutForm(await Astro.request.formData());
+	errors = validateCheckout(values, zones);
+
+	if (Object.keys(errors).length === 0) {
+		/*
+		 * Every figure that reaches Paystack is recomputed here.
+		 *
+		 * The cart cookie holds no prices, the subtotal comes back from the
+		 * database, and the delivery fee is read off the chosen zone row — not
+		 * from the form, which a buyer can edit freely. The submitted zone id is
+		 * the only thing taken from the request, and validation has already
+		 * confirmed it is one of ours.
+		 */
+		const zone = zones.find((candidate) => candidate.id === values.deliveryZoneId)!;
+		const money = {
+			subtotalPesewas: cart.subtotalPesewas,
+			deliveryFeePesewas: zone.feePesewas,
+			totalPesewas: cart.subtotalPesewas + zone.feePesewas,
+		};
+
+		// Stored before the hand-off, so an order abandoned on Paystack's page
+		// still has its delivery details when the shop follows it up.
+		await saveCheckoutDetails(
+			draft.id,
+			{
+				...values,
+				buyerPhone: normalisePhone(values.buyerPhone)!,
+				recipientPhone: normalisePhone(values.recipientPhone)!,
+			},
+			money,
+		);
+
+		if (!isPaystackConfigured()) {
+			formError =
+				'Payment is not connected yet. Your delivery details are saved — add the Paystack keys to take payment.';
+		} else {
+			try {
+				const { authorizationUrl } = await initializeTransaction({
+					email: values.buyerEmail,
+					amountPesewas: money.totalPesewas,
+					reference: draft.reference,
+					callbackUrl: new URL('/order/complete', Astro.url.origin).toString(),
+					metadata: {
+						order_reference: draft.reference,
+						recipient_name: values.recipientName,
+						delivery_date: values.deliveryDate,
+					},
+				});
+				return Astro.redirect(authorizationUrl, 303);
+			} catch (cause) {
+				console.error('paystack initialize failed', cause);
+				formError =
+					'We could not reach the payment provider. Your details are saved — please try again in a moment.';
+			}
+		}
+	}
+}
+
+const selectedZone =
+	zones.find((zone) => zone.id === values.deliveryZoneId) ?? zones[0];
+const deliveryFee = selectedZone?.feePesewas ?? 0;
+const total = cart.subtotalPesewas + deliveryFee;
+
+const label = 'block text-[0.9375rem] font-medium text-forest-700';
+const field =
+	'mt-2 w-full rounded-none border border-forest-700 bg-white px-4 py-3 text-[0.9375rem] text-forest-900 outline-none transition-colors duration-200 placeholder:text-forest-700/40 focus:border-terracotta-700';
+const fieldBad = field.replace('border-forest-700', 'border-terracotta-700');
+const errorText = 'mt-1.5 block text-[0.8125rem] text-terracotta-700';
+---
+
+<Layout title="Checkout — La Fleur" description="Delivery details and payment.">
+	<section class="bg-butter py-16 lg:py-20">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<PageHeader title="Checkout" subtitle="Where should these flowers go?" />
+
+			<form
+				method="post"
+				class="mx-auto mt-[clamp(3rem,6vw,8rem)] grid w-full max-w-5xl gap-10 lg:grid-cols-[1.35fr_1fr] lg:items-start"
+			>
+				<div class="space-y-8">
+					{
+						formError && (
+							<p
+								class="border border-terracotta-700 bg-white px-5 py-4 text-[0.9375rem] text-terracotta-700"
+								role="alert"
+							>
+								{formError}
+							</p>
+						)
+					}
+
+					{/* --- Buyer --- */}
+					<fieldset class="border border-forest-700 bg-white p-6">
+						<legend class="px-2 text-[0.9375rem] font-semibold text-forest-700">
+							Your details
+						</legend>
+
+						<div class="mt-2 grid gap-5 sm:grid-cols-2">
+							<label class="sm:col-span-2">
+								<span class={label}>Your name</span>
+								<input
+									type="text"
+									name="buyerName"
+									value={values.buyerName}
+									autocomplete="name"
+									required
+									class={errors.buyerName ? fieldBad : field}
+								/>
+								{errors.buyerName && <span class={errorText}>{errors.buyerName}</span>}
+							</label>
+
+							<label>
+								<span class={label}>Email</span>
+								<input
+									type="email"
+									name="buyerEmail"
+									value={values.buyerEmail}
+									autocomplete="email"
+									required
+									class={errors.buyerEmail ? fieldBad : field}
+								/>
+								{errors.buyerEmail && <span class={errorText}>{errors.buyerEmail}</span>}
+								<span class="mt-1.5 block text-[0.8125rem] text-forest-700/60">
+									Your receipt goes here.
+								</span>
+							</label>
+
+							<label>
+								<span class={label}>Your phone</span>
+								<input
+									type="tel"
+									name="buyerPhone"
+									value={values.buyerPhone}
+									autocomplete="tel"
+									placeholder="024 123 4567"
+									required
+									class={errors.buyerPhone ? fieldBad : field}
+								/>
+								{errors.buyerPhone && <span class={errorText}>{errors.buyerPhone}</span>}
+							</label>
+						</div>
+					</fieldset>
+
+					{/* --- Recipient --- */}
+					<fieldset class="border border-forest-700 bg-white p-6">
+						<legend class="px-2 text-[0.9375rem] font-semibold text-forest-700">
+							Who receives them
+						</legend>
+
+						<div class="mt-2 grid gap-5 sm:grid-cols-2">
+							<label>
+								<span class={label}>Recipient&rsquo;s name</span>
+								<input
+									type="text"
+									name="recipientName"
+									value={values.recipientName}
+									required
+									class={errors.recipientName ? fieldBad : field}
+								/>
+								{errors.recipientName && (
+									<span class={errorText}>{errors.recipientName}</span>
+								)}
+							</label>
+
+							<label>
+								<span class={label}>Recipient&rsquo;s phone</span>
+								<input
+									type="tel"
+									name="recipientPhone"
+									value={values.recipientPhone}
+									placeholder="024 123 4567"
+									required
+									class={errors.recipientPhone ? fieldBad : field}
+								/>
+								{errors.recipientPhone && (
+									<span class={errorText}>{errors.recipientPhone}</span>
+								)}
+								<span class="mt-1.5 block text-[0.8125rem] text-forest-700/60">
+									The courier calls this on arrival.
+								</span>
+							</label>
+
+							<label class="sm:col-span-2">
+								<span class={label}>Delivery address</span>
+								<textarea
+									name="deliveryAddress"
+									rows="3"
+									required
+									placeholder="House number, street, area, and any landmark"
+									class={errors.deliveryAddress ? fieldBad : field}
+									>{values.deliveryAddress}</textarea
+								>
+								{errors.deliveryAddress && (
+									<span class={errorText}>{errors.deliveryAddress}</span>
+								)}
+							</label>
+
+							<label class="sm:col-span-2">
+								<span class={label}>
+									Notes for the courier
+									<span class="font-normal text-forest-700/60">(optional)</span>
+								</span>
+								<input
+									type="text"
+									name="deliveryNotes"
+									value={values.deliveryNotes}
+									placeholder="Leave with the receptionist, it's a surprise…"
+									class={field}
+								/>
+							</label>
+						</div>
+					</fieldset>
+
+					{/* --- When --- */}
+					<fieldset class="border border-forest-700 bg-white p-6">
+						<legend class="px-2 text-[0.9375rem] font-semibold text-forest-700">
+							When
+						</legend>
+
+						<div class="mt-2 grid gap-5 sm:grid-cols-2">
+							<label>
+								<span class={label}>Delivery area</span>
+								<select
+									name="deliveryZoneId"
+									required
+									data-zone
+									class={errors.deliveryZoneId ? fieldBad : field}
+								>
+									{zones.map((zone) => (
+										<option
+											value={zone.id}
+											selected={zone.id === values.deliveryZoneId}
+											data-fee={zone.feePesewas}
+										>
+											{zone.name} — {formatPesewas(zone.feePesewas)}
+										</option>
+									))}
+								</select>
+								{errors.deliveryZoneId && (
+									<span class={errorText}>{errors.deliveryZoneId}</span>
+								)}
+							</label>
+
+							<label>
+								<span class={label}>Delivery date</span>
+								<input
+									type="date"
+									name="deliveryDate"
+									value={values.deliveryDate}
+									min={earliestDeliveryDate()}
+									max={latestDeliveryDate()}
+									required
+									class={errors.deliveryDate ? fieldBad : field}
+								/>
+								{errors.deliveryDate && <span class={errorText}>{errors.deliveryDate}</span>}
+							</label>
+
+							<label class="sm:col-span-2">
+								<span class={label}>Time</span>
+								<select
+									name="deliverySlot"
+									required
+									class={errors.deliverySlot ? fieldBad : field}
+								>
+									{DELIVERY_SLOTS.map((slot) => (
+										<option value={slot.value} selected={slot.value === values.deliverySlot}>
+											{slot.label}
+										</option>
+									))}
+								</select>
+								{errors.deliverySlot && <span class={errorText}>{errors.deliverySlot}</span>}
+							</label>
+						</div>
+					</fieldset>
+				</div>
+
+				{/* --- Summary --- */}
+				<aside
+					class="border border-forest-700 bg-white p-6 lg:sticky lg:top-28"
+					data-summary
+					data-subtotal={cart.subtotalPesewas}
+				>
+					<h2 class="text-[1.125rem] font-semibold text-forest-700">
+						Your order
+					</h2>
+
+					<ul class="mt-5 space-y-4">
+						{cart.lines.map((line) => (
+							<li class="flex gap-4">
+								<span class="block aspect-7/8 w-14 shrink-0 overflow-hidden bg-surface-alt">
+									<img
+										src={line.product.image}
+										alt=""
+										loading="lazy"
+										class="h-full w-full object-cover"
+									/>
+								</span>
+								<span class="flex-1 text-[0.875rem] text-forest-700">
+									{line.product.name}
+									<span class="block text-[0.8125rem] text-forest-700/70">
+										{line.variant.label} · {line.quantity} ×
+									</span>
+								</span>
+								<span class="text-[0.875rem] font-medium text-forest-700">
+									{formatPesewas(line.lineTotalPesewas)}
+								</span>
+							</li>
+						))}
+					</ul>
+
+					<dl class="mt-6 space-y-2 border-t border-forest-700/20 pt-5 text-[0.9375rem] text-forest-700">
+						<div class="flex justify-between gap-4">
+							<dt>Subtotal</dt>
+							<dd>{formatPesewas(cart.subtotalPesewas)}</dd>
+						</div>
+						<div class="flex justify-between gap-4">
+							<dt>Delivery</dt>
+							<dd data-fee-display>{formatPesewas(deliveryFee)}</dd>
+						</div>
+						<div
+							class="flex justify-between gap-4 border-t border-forest-700/20 pt-3 text-[1.0625rem] font-semibold"
+						>
+							<dt>Total</dt>
+							<dd data-total-display>{formatPesewas(total)}</dd>
+						</div>
+					</dl>
+
+					<button
+						type="submit"
+						class="mt-6 flex w-full items-center justify-center gap-3 bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+					>
+						Pay {formatPesewas(total)}
+					</button>
+
+					<p class="mt-4 text-center text-[0.8125rem] text-forest-700/60">
+						Card and Mobile Money, secured by Paystack.
+					</p>
+
+					<a
+						href="/order/message"
+						class="mt-4 block text-center text-[0.875rem] text-forest-700 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+					>
+						Back to your message
+					</a>
+
+					<button
+						type="submit"
+						form="start-over"
+						class="mt-3 block w-full text-center text-[0.875rem] text-forest-700/60 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+					>
+						Start over
+					</button>
+				</aside>
+			</form>
+
+			{/* Sibling of the checkout form — forms cannot nest. */}
+			<form
+				method="post"
+				action="/api/order/start-over"
+				id="start-over"
+				class="hidden"
+				data-confirm="Start over? This clears your basket, your message and any recording."
+			></form>
+		</div>
+	</section>
+</Layout>
+
+<script>
+	document
+		.querySelectorAll<HTMLFormElement>('form[data-confirm]')
+		.forEach((form) => {
+			form.addEventListener('submit', (event) => {
+				if (!window.confirm(form.dataset.confirm ?? 'Are you sure?')) {
+					event.preventDefault();
+				}
+			});
+		});
+</script>
+
+<script>
+	/*
+	 * Keep the delivery fee and total honest as the area changes.
+	 *
+	 * Presentation only — the server recomputes both from the zone row before
+	 * anything is charged, so editing these numbers in the console changes what
+	 * the page says and nothing else.
+	 */
+	const zoneSelect = document.querySelector<HTMLSelectElement>('[data-zone]');
+	const summary = document.querySelector<HTMLElement>('[data-summary]');
+	const feeOut = document.querySelector<HTMLElement>('[data-fee-display]');
+	const totalOut = document.querySelector<HTMLElement>('[data-total-display]');
+	const payButton = document.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+	// Rendered by the server from the same figure it will charge.
+	const subtotal = Number(summary?.dataset.subtotal ?? 0);
+
+	function money(pesewas: number): string {
+		return `GHS ${(pesewas / 100).toFixed(2)}`;
+	}
+
+	zoneSelect?.addEventListener('change', () => {
+		const fee = Number(zoneSelect.selectedOptions[0]?.dataset.fee ?? 0);
+		if (feeOut) feeOut.textContent = money(fee);
+		if (totalOut) totalOut.textContent = money(subtotal + fee);
+		if (payButton) payButton.textContent = `Pay ${money(subtotal + fee)}`;
+	});
+</script>

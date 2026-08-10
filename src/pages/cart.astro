@@ -1,0 +1,207 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { readCart, resolveCart } from '../lib/cart';
+import { formatPesewas, formatPriceShort } from '../lib/money';
+
+const cart = await resolveCart(readCart(Astro.cookies));
+const isEmpty = cart.lines.length === 0;
+
+const controlClass =
+	'rounded-none border border-forest-700 bg-white px-4 py-2.5 text-[0.9375rem] text-forest-900 outline-none transition-colors duration-200 focus:border-terracotta-700';
+---
+
+<Layout title="Your cart — La Fleur" description="Review your bouquets.">
+	<section class="bg-butter py-16 lg:py-20">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<PageHeader
+				title="Your Cart"
+				subtitle={isEmpty
+					? 'Nothing here yet.'
+					: `${cart.count} ${cart.count === 1 ? 'bouquet' : 'bouquets'} ready to go.`}
+			/>
+
+			<div class="mx-auto mt-[clamp(3rem,6vw,8rem)] w-full max-w-4xl">
+				{
+					isEmpty ? (
+						<div class="border border-forest-700 bg-white p-10 text-center">
+							<p class="text-[0.9375rem] text-forest-700">
+								Your cart is empty.
+							</p>
+							<a
+								href="/shop"
+								class="group mt-6 inline-flex items-center gap-3 bg-terracotta-700 px-7 py-3.5 text-[0.875rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+							>
+								Browse bouquets
+								<svg
+									width="18"
+									height="12"
+									viewBox="0 0 18 12"
+									fill="none"
+									aria-hidden="true"
+									class="transition-transform duration-300 group-hover:translate-x-1"
+								>
+									<path
+										d="M0 6h16M11.5 1l5 5-5 5"
+										stroke="currentColor"
+										stroke-width="1.3"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							</a>
+						</div>
+					) : (
+						<>
+							<ul class="divide-y divide-forest-700/20 border border-forest-700 bg-white">
+								{cart.lines.map((line, index) => (
+									<li class="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-6">
+										<a
+											href={`/shop/${line.product.slug}`}
+											class="w-full shrink-0 sm:w-28"
+										>
+											<span class="sr-only">{line.product.name}</span>
+											<span class="block aspect-7/8 overflow-hidden bg-surface-alt">
+												<img
+													src={line.product.image}
+													alt=""
+													loading="lazy"
+													decoding="async"
+													class="h-full w-full object-cover"
+												/>
+											</span>
+										</a>
+
+										<div class="min-w-0 flex-1">
+											<a
+												href={`/shop/${line.product.slug}`}
+												class="text-[1rem] font-medium text-forest-700 transition-colors hover:text-terracotta-700"
+											>
+												{line.product.name}
+											</a>
+											<p class="mt-1 text-[0.875rem] text-forest-700/70">
+												Size: {line.variant.label}
+											</p>
+											<p class="mt-1 text-[0.875rem] text-forest-700/70">
+												{formatPriceShort(line.variant.pricePesewas)} each
+											</p>
+										</div>
+
+										<div class="flex items-center gap-4 sm:gap-6">
+											{/*
+											  Each row is its own form. The index is a hidden field
+											  rather than part of a URL so the action cannot be
+											  triggered by a link someone is tricked into following.
+											*/}
+											<form
+												method="post"
+												action="/api/cart"
+												class="flex items-center gap-2"
+											>
+												<input type="hidden" name="action" value="update" />
+												<input type="hidden" name="index" value={index} />
+												<label class="sr-only" for={`qty-${index}`}>
+													Quantity for {line.product.name}
+												</label>
+												<input
+													id={`qty-${index}`}
+													type="number"
+													name="quantity"
+													value={line.quantity}
+													min="1"
+													max="20"
+													class={`${controlClass} w-20`}
+												/>
+												<button
+													type="submit"
+													class="text-[0.8125rem] font-semibold text-forest-700 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+												>
+													Update
+												</button>
+											</form>
+
+											<p class="ml-auto min-w-24 text-right text-[1.0625rem] font-semibold text-forest-900">
+												{formatPriceShort(line.lineTotalPesewas)}
+											</p>
+
+											<form method="post" action="/api/cart">
+												<input type="hidden" name="action" value="remove" />
+												<input type="hidden" name="index" value={index} />
+												<button
+													type="submit"
+													class="p-2 text-forest-700/60 transition-colors hover:text-terracotta-700"
+												>
+													<span class="sr-only">
+														Remove {line.product.name}
+													</span>
+													<svg
+														width="18"
+														height="18"
+														viewBox="0 0 24 24"
+														fill="none"
+														aria-hidden="true"
+													>
+														<path
+															d="M6 6l12 12M18 6L6 18"
+															stroke="currentColor"
+															stroke-width="1.6"
+															stroke-linecap="round"
+														/>
+													</svg>
+												</button>
+											</form>
+										</div>
+									</li>
+								))}
+							</ul>
+
+							<div class="mt-8 flex flex-col items-stretch gap-6 sm:flex-row sm:items-center sm:justify-between">
+								<div>
+									<p class="text-[0.875rem] text-forest-700/70">Subtotal</p>
+									<p class="mt-1 font-display text-[clamp(1.75rem,2.5vw,2.5rem)] leading-none text-forest-700">
+										{formatPesewas(cart.subtotalPesewas)}
+									</p>
+									<p class="mt-2 text-[0.8125rem] text-forest-700/70">
+										Delivery is calculated at checkout.
+									</p>
+								</div>
+
+								<a
+									href="/order/message"
+									class="group inline-flex items-center justify-center gap-3 bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+								>
+									Continue
+									<svg
+										width="18"
+										height="12"
+										viewBox="0 0 18 12"
+										fill="none"
+										aria-hidden="true"
+										class="transition-transform duration-300 group-hover:translate-x-1"
+									>
+										<path
+											d="M0 6h16M11.5 1l5 5-5 5"
+											stroke="currentColor"
+											stroke-width="1.3"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								</a>
+							</div>
+
+							<p class="mt-6 text-center text-[0.875rem] sm:text-left">
+								<a
+									href="/shop"
+									class="text-forest-700 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+								>
+									Keep shopping
+								</a>
+							</p>
+						</>
+					)
+				}
+			</div>
+		</div>
+	</section>
+</Layout>

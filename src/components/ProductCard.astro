@@ -1,0 +1,66 @@
+---
+import type { Product } from '../lib/catalog';
+import { formatPriceShort } from '../lib/money';
+
+interface Props {
+	product: Product;
+}
+
+const { product } = Astro.props;
+
+/*
+ * With size variants, the listed price is the cheapest way to buy the product —
+ * that is what a price on a card means to a customer. `pricePesewas` already
+ * carries that, computed in the catalog layer.
+ */
+const hasVariants = product.variants.length > 0;
+const isReduced =
+	product.comparePesewas !== undefined &&
+	product.comparePesewas > product.pricePesewas;
+---
+
+<li>
+	<a href={`/shop/${product.slug}`} class="group block">
+		{/* The outline is a ring rather than a border: box-shadow is drawn outside
+		    the box, so it appears on hover without nudging the image. */}
+		<div
+			class="aspect-7/8 overflow-hidden bg-surface-alt ring-1 ring-transparent transition-[box-shadow] duration-300 group-hover:ring-forest-900"
+		>
+			<img
+				src={product.image}
+				alt={product.name}
+				class="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+				loading="lazy"
+				decoding="async"
+			/>
+		</div>
+
+		<div class="mt-4 flex items-baseline justify-between gap-4">
+			<h3
+				class="text-[0.9375rem] font-medium text-forest-700 transition-colors duration-300 group-hover:text-terracotta-700"
+			>
+				{product.name}
+			</h3>
+
+			<p class="flex shrink-0 items-baseline gap-2">
+				{
+					product.comparePesewas !== undefined && (
+						<>
+							<span class="sr-only">{isReduced ? 'Was' : 'Previously'}</span>
+							{/* <s> is the correct element here: the price is outdated,
+							    not deleted from the document. */}
+							<s class="text-[0.8125rem] text-forest-300">
+								{formatPriceShort(product.comparePesewas)}
+							</s>
+							<span class="sr-only">, now</span>
+						</>
+					)
+				}
+				<span class="text-[1.25rem] font-semibold text-forest-900">
+					{hasVariants && <span class="sr-only">from </span>}
+					{formatPriceShort(product.pricePesewas)}
+				</span>
+			</p>
+		</div>
+	</a>
+</li>

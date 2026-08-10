@@ -1,0 +1,61 @@
+---
+/*
+ * Accepted-payment badges.
+ *
+ * These are simplified marks, not the official brand assets — and the list
+ * itself is the template's, not this shop's. Paystack Ghana settles cards and
+ * Mobile Money (MTN, Telecel, AirtelTigo); it does not process Apple Pay,
+ * Google Pay or PayPal. Showing a badge for a method checkout cannot accept
+ * loses orders at the last step, so this list should be corrected against the
+ * live Paystack configuration before launch.
+ */
+const boxClass =
+	'flex h-10 w-16 items-center justify-center rounded-sm border border-forest-700/15 bg-white';
+---
+
+<ul class="flex flex-wrap items-center gap-3">
+	<li class={boxClass}>
+		<span class="sr-only">Visa</span>
+		<span
+			aria-hidden="true"
+			class="text-[0.8125rem] font-bold tracking-tight text-[#1a1f71] italic"
+		>
+			VISA
+		</span>
+	</li>
+
+	<li class={boxClass}>
+		<span class="sr-only">Mastercard</span>
+		<svg width="34" height="21" viewBox="0 0 34 21" aria-hidden="true">
+			<circle cx="13" cy="10.5" r="8.5" fill="#eb001b"></circle>
+			<circle cx="21" cy="10.5" r="8.5" fill="#f79e1b" opacity="0.85"></circle>
+		</svg>
+	</li>
+
+	<li class={boxClass}>
+		<span class="sr-only">Apple Pay</span>
+		<span aria-hidden="true" class="flex items-center gap-0.5 text-[#000]">
+			<svg width="12" height="14" viewBox="0 0 16 17" fill="currentColor">
+				<path
+					d="M11.2 3.3c.6-.7 1-1.7.9-2.7-.9 0-2 .6-2.6 1.3-.6.6-1 1.6-.9 2.6 1 .1 2-.5 2.6-1.2zM13.6 8.6c0-1.7 1.4-2.5 1.4-2.6-.8-1.1-2-1.3-2.4-1.3-1-.1-2 .6-2.5.6s-1.3-.6-2.1-.6c-1.1 0-2.1.6-2.7 1.6-1.1 2-.3 4.9.8 6.5.5.8 1.2 1.7 2 1.6.8 0 1.1-.5 2.1-.5s1.2.5 2.1.5c.9 0 1.4-.8 1.9-1.6.6-.9.9-1.8.9-1.8s-1.5-.6-1.5-2.4z"
+				></path>
+			</svg>
+			<span class="text-[0.8125rem] font-semibold">Pay</span>
+		</span>
+	</li>
+
+	<li class={boxClass}>
+		<span class="sr-only">Google Pay</span>
+		<span aria-hidden="true" class="flex items-baseline gap-0.5">
+			<span class="text-[0.9375rem] font-bold text-[#4285f4]">G</span>
+			<span class="text-[0.8125rem] font-semibold text-[#5f6368]">Pay</span>
+		</span>
+	</li>
+
+	<li class={boxClass}>
+		<span class="sr-only">PayPal</span>
+		<span aria-hidden="true" class="text-[0.8125rem] font-bold italic">
+			<span class="text-[#003087]">Pay</span><span class="text-[#009cde]">Pal</span>
+		</span>
+	</li>
+</ul>

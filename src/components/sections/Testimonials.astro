@@ -1,0 +1,104 @@
+---
+import SectionHeader from '../SectionHeader.astro';
+
+/*
+ * Placeholder review data, lifted from the template. Moves to Supabase with the
+ * orders/reviews tables later.
+ *
+ * NOTE: the second image really is spelled `testmonial2.avif` in public/images
+ * — missing an "i". Referenced as-is so the card renders; worth renaming the
+ * file and this string together.
+ */
+const testimonials = [
+	{
+		bouquet: 'White Reverie',
+		quote:
+			'“ The bouquet arrived fresh, vibrant, and beautifully arranged. My mom loved it! Excellent service, punctual delivery, highly recommend this florist ”',
+		name: 'D D Ken',
+		rating: '5.0',
+		image: '/images/testimonial1.avif',
+		imageAlt: 'A florist standing at her workbench in a plant-filled studio',
+	},
+	{
+		bouquet: 'White Reverie',
+		quote:
+			'“Absolutely beautiful bouquet—fresh, vibrant, and perfectly arranged. My mom was thrilled! Excellent service and right on time.”',
+		name: 'K. Willson',
+		rating: '5.0',
+		image: '/images/testmonial2.avif',
+		imageAlt: 'A restaurant table set with a small posy of flowers',
+	},
+	{
+		bouquet: 'White Reverie',
+		quote:
+			'“I’m so impressed! The bouquet arrived fresh and gorgeous, exactly as pictured. My mom loved it, and delivery was punctual. Highly recommend!”',
+		name: 'Daniel K.',
+		rating: '5.0',
+		image: '/images/testimonial3.avif',
+		imageAlt: 'A florist holding a wrapped bouquet beside a window',
+	},
+];
+---
+
+<section aria-labelledby="testimonials" class="bg-butter py-20 lg:py-28">
+	<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+		<SectionHeader id="testimonials" title="What Our Customers Say" />
+
+		<ul
+			class="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:mt-12 lg:grid-cols-3"
+		>
+			{
+				testimonials.map(
+					({ bouquet, quote, name, rating, image, imageAlt }) => (
+						/*
+						 * The card owns the 5/6 ratio and the photograph takes whatever
+						 * height the quote leaves, so every card lines up regardless of
+						 * how long its review runs.
+						 */
+						<li class="texture-grain flex aspect-5/6 flex-col border border-forest-700/50 bg-sand">
+							<figure class="p-6">
+								<p class="text-[0.9375rem] text-forest-700">
+									Bouquet: <span class="ml-1 font-semibold">{bouquet}</span>
+								</p>
+
+								<blockquote class="mt-6 text-[0.9375rem] leading-[1.75] text-forest-700">
+									{quote}
+								</blockquote>
+
+								<figcaption class="mt-8 flex items-center justify-between gap-4 text-[0.9375rem] font-semibold text-forest-700">
+									<span>{name}</span>
+									<span class="flex shrink-0 items-center gap-1.5">
+										<svg
+											width="16"
+											height="16"
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											aria-hidden="true"
+										>
+											<path d="M8 1.5l1.9 4.02 4.35.6-3.15 3.1.75 4.38L8 11.53 4.15 13.6l.75-4.38-3.15-3.1 4.35-.6z" />
+										</svg>
+										<span>
+											<span class="sr-only">Rated </span>
+											{rating}
+											<span class="sr-only"> out of 5</span>
+										</span>
+									</span>
+								</figcaption>
+							</figure>
+
+							<div class="relative min-h-0 flex-1">
+								<img
+									src={image}
+									alt={imageAlt}
+									loading="lazy"
+									decoding="async"
+									class="absolute inset-0 h-full w-full object-cover"
+								/>
+							</div>
+						</li>
+					),
+				)
+			}
+		</ul>
+	</div>
+</section>

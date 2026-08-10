@@ -1,0 +1,91 @@
+---
+import FeatureIcon from '../FeatureIcon.astro';
+
+const features = [
+	{ icon: 'bloom' as const, text: 'Handpicked blooms that radiate pure joy.' },
+	{ icon: 'burst' as const, text: 'Inspiring renewal with each fresh blossom.' },
+	{ icon: 'star' as const, text: 'Celebrate vibrant beauty of springtime.' },
+];
+---
+
+{/*
+  Mirror of the Trusted section: photograph on the left, copy on the right. Same
+  approach — the teal lives on the section, so on mobile the photograph is
+  padded in and the background shows around it, and from lg it becomes a
+  full-bleed column.
+
+  The copy comes first in the document so mobile reads heading-then-photograph;
+  the desktop order is restored by placing the columns explicitly rather than by
+  reordering, which keeps the reading order intact for screen readers.
+
+  The radial is centred at 18%, which sits behind the photograph on desktop; the
+  copy panel therefore catches only its outer falloff, lighter beside the image
+  and deepening to the right, as in the design.
+*/}
+<section
+	aria-labelledby="spring-blooms"
+	class="bg-[radial-gradient(110%_130%_at_18%_55%,var(--color-teal-700)_0%,var(--color-teal-800)_48%,var(--color-teal-900)_100%)] lg:grid lg:split-section"
+>
+	{/*
+	  justify-between parks the feature list against the bottom of the panel on
+	  desktop, matching the wide gap in the design, while the gap keeps the two
+	  groups apart once the panel collapses to mobile height.
+	*/}
+	<div
+		class="flex flex-col justify-between gap-12 px-5 pt-16 pb-12 sm:px-8 lg:col-start-2 lg:row-start-1 lg:gap-10 lg:px-10 lg:py-20"
+	>
+		<div>
+			<h2
+				id="spring-blooms"
+				class="font-display text-[clamp(1.75rem,2.5vw,3rem)] leading-[1.15] text-white"
+			>
+				Fresh Spring Blooms,<br class="hidden sm:block" /> Specially for You
+			</h2>
+
+			<a
+				href="/shop"
+				class="group mt-8 inline-flex items-center gap-3 bg-terracotta-600 px-7 py-4 text-[clamp(0.875rem,0.8vw,1rem)] font-medium tracking-[0.01em] text-white transition-colors duration-300 hover:bg-terracotta-700"
+			>
+				Shop Now
+				<svg
+					width="18"
+					height="12"
+					viewBox="0 0 18 12"
+					fill="none"
+					aria-hidden="true"
+					class="transition-transform duration-300 group-hover:translate-x-1"
+				>
+					<path
+						d="M0 6h16M11.5 1l5 5-5 5"
+						stroke="currentColor"
+						stroke-width="1.3"
+						stroke-linecap="round"
+						stroke-linejoin="round"></path>
+				</svg>
+			</a>
+		</div>
+
+		<ul class="space-y-4">
+			{
+				features.map(({ icon, text }) => (
+					<li class="flex items-center gap-3 text-[0.9375rem] text-white/90">
+						<FeatureIcon name={icon} class="size-4 shrink-0 text-white" />
+						<span>{text}</span>
+					</li>
+				))
+			}
+		</ul>
+	</div>
+
+	<div class="px-5 pb-16 sm:px-8 lg:col-start-1 lg:row-start-1 lg:p-0">
+		<div class="relative aspect-25/24 lg:aspect-auto lg:h-full">
+			<img
+				src="/images/blooms.avif"
+				alt="A woman in teal light holding a spring bouquet of lilies and gypsophila"
+				class="absolute inset-0 h-full w-full object-cover object-center"
+				loading="lazy"
+				decoding="async"
+			/>
+		</div>
+	</div>
+</section>

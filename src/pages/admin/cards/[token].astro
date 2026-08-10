@@ -1,0 +1,133 @@
+---
+import '../../../styles/global.css';
+import { Font } from 'astro:assets';
+import { supabaseAdmin } from '../../../lib/supabase';
+
+/*
+ * The card that goes in with the flowers.
+ *
+ * A print stylesheet rather than a PDF: the shop prints this from a browser on
+ * whatever paper they have, and one less dependency is one less thing to break
+ * on a Saturday morning.
+ *
+ * Sized for a folded A6 card. What the recipient sees is only their message and
+ * the code — no order reference, no price, no buyer's surname. A gift should
+ * not arrive looking like an invoice.
+ */
+
+const token = String(Astro.params.token ?? '');
+if (!/^[0-9a-f]{32}$/.test(token)) {
+	return new Response('Not found', { status: 404 });
+}
+
+const { data } = await supabaseAdmin
+	.from('order_messages')
+	.select('body, play_token, audio_path, orders ( recipient_name )')
+	.eq('play_token', token)
+	.maybeSingle();
+
+if (!data) return new Response('Not found', { status: 404 });
+
+const row = data as any;
+const recipient = row.orders?.recipient_name ?? null;
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<meta name="robots" content="noindex,nofollow" />
+		<title>Card for {recipient ?? 'this order'}</title>
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<Font cssVariable="--font-playfair" preload />
+		<Font cssVariable="--font-montserrat" preload />
+		<Font cssVariable="--font-parisienne" preload />
+	</head>
+
+	<body class="bg-forest-700/10 font-body">
+		<div class="no-print mx-auto max-w-[148mm] px-5 pt-8 text-center">
+			<button
+				type="button"
+				onclick="window.print()"
+				class="bg-terracotta-700 px-6 py-3 text-[0.9375rem] font-semibold text-white transition-colors hover:bg-terracotta-600"
+			>
+				Print this card
+			</button>
+			<p class="mt-3 text-[0.8125rem] text-forest-700/70">
+				A6 — trim or fold to size. Scan it once before it goes out.
+			</p>
+		</div>
+
+		<article class="card mx-auto my-8 flex flex-col items-center justify-center bg-white px-10 py-12 text-center">
+			{
+				recipient && (
+					<p class="font-display text-[1.375rem] text-forest-900">
+						For {recipient}
+					</p>
+				)
+			}
+
+			{
+				row.body && (
+					<p class="mt-6 max-w-[95mm] font-display text-[1.0625rem] leading-[1.75] text-forest-900">
+						{row.body}
+					</p>
+				)
+			}
+
+			{
+				row.audio_path && (
+					<>
+						<img
+							src={`/qr/${row.play_token}.svg`}
+							alt=""
+							width="150"
+							height="150"
+							class="mt-8"
+						/>
+						<p class="mt-3 text-[0.75rem] uppercase tracking-[0.18em] text-forest-700/70">
+							Scan to hear them
+						</p>
+					</>
+				)
+			}
+
+			<p class="mt-auto pt-8 font-logo text-[1.375rem] leading-none text-forest-700/60">
+				La Fleur
+			</p>
+		</article>
+	</body>
+</html>
+
+<style>
+	.card {
+		width: 105mm;
+		min-height: 148mm;
+	}
+
+	@media print {
+		/*
+		 * Everything the shop needs on screen is noise on paper. The card itself
+		 * loses its margins so it sits where the page is trimmed.
+		 */
+		.no-print {
+			display: none !important;
+		}
+
+		body {
+			background: #fff;
+		}
+
+		.card {
+			margin: 0;
+			box-shadow: none;
+		}
+
+		@page {
+			size: A6;
+			margin: 0;
+		}
+	}
+</style>

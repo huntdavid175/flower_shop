@@ -1,0 +1,29 @@
+---
+import ProductCard from '../ProductCard.astro';
+import SectionHeader from '../SectionHeader.astro';
+import { getProducts } from '../../lib/catalog';
+
+const bestProducts = await getProducts({ limit: 8, offset: 4 });
+---
+
+<section aria-labelledby="best-products" class="bg-butter py-20 lg:py-28">
+	<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+		<SectionHeader
+			id="best-products"
+			title="Best Products"
+			linkHref="/shop"
+			linkLabel="See All Bouquets"
+		/>
+
+		{/*
+		  Three across on laptops, four only on the wide layout. Row gap is wider
+		  than the column gap so the two rows read as separate bands rather than a
+		  continuous block of images.
+		*/}
+		<ul
+			class="mt-10 grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:mt-12 lg:grid-cols-3 lg:gap-y-14 3xl:grid-cols-4"
+		>
+			{bestProducts.map((product) => <ProductCard product={product} />)}
+		</ul>
+	</div>
+</section>

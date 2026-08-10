@@ -1,0 +1,109 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { listAdminProducts } from '../../../lib/products-admin';
+import { formatPesewas } from '../../../lib/money';
+
+const staff = Astro.locals.staff!;
+const products = await listAdminProducts();
+
+const live = products.filter((p) => p.isActive).length;
+---
+
+<AdminLayout title="Products" staffName={staff.name ?? staff.email}>
+	<div class="flex flex-wrap items-baseline justify-between gap-4">
+		<div>
+			<h1 class="font-display text-[1.875rem] text-forest-900">Products</h1>
+			<p class="mt-2 text-[0.9375rem] text-forest-700/70">
+				{live} of {products.length} showing in the shop.
+			</p>
+		</div>
+		<a
+			href="/admin/products/new"
+			class="bg-terracotta-700 px-6 py-3 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+		>
+			Add a bouquet
+		</a>
+	</div>
+
+	{
+		products.length === 0 ? (
+			<p class="mt-10 border border-forest-700/25 bg-white p-10 text-center text-[0.9375rem] text-forest-700/70">
+				No products yet.
+			</p>
+		) : (
+			<div class="mt-8 overflow-x-auto border border-forest-700/25 bg-white">
+				<table class="w-full min-w-[46rem] border-collapse text-left">
+					<thead>
+						<tr class="border-b border-forest-700/20 text-[0.8125rem] uppercase tracking-wide text-forest-700/60">
+							<th class="px-5 py-3 font-medium">Bouquet</th>
+							<th class="px-5 py-3 font-medium">Category</th>
+							<th class="px-5 py-3 font-medium">Sizes</th>
+							<th class="px-5 py-3 text-right font-medium">From</th>
+							<th class="px-5 py-3 text-right font-medium">In the shop</th>
+						</tr>
+					</thead>
+					<tbody>
+						{products.map((product) => (
+							<tr class="border-b border-forest-700/10 last:border-0 hover:bg-butter/60">
+								<td class="px-5 py-3">
+									<a href={`/admin/products/${product.id}`} class="flex items-center gap-4">
+										<span class="block aspect-7/8 w-12 shrink-0 overflow-hidden bg-forest-700/10">
+											{product.imageUrl && (
+												<img
+													src={product.imageUrl}
+													alt=""
+													loading="lazy"
+													class="h-full w-full object-cover"
+												/>
+											)}
+										</span>
+										<span>
+											<span class="block font-medium text-forest-900 underline underline-offset-4">
+												{product.name}
+											</span>
+											<span class="mt-0.5 block font-mono text-[0.75rem] text-forest-700/50">
+												/{product.slug}
+											</span>
+										</span>
+									</a>
+								</td>
+								<td class="px-5 py-3 text-[0.9375rem] text-forest-700">
+									{product.categoryName ?? '—'}
+								</td>
+								<td class="px-5 py-3 text-[0.9375rem] text-forest-700">
+									{product.variantCount > 0 ? (
+										product.variantCount
+									) : (
+										<span class="text-terracotta-700">none — cannot be bought</span>
+									)}
+								</td>
+								<td class="px-5 py-3 text-right text-[0.9375rem] text-forest-900">
+									{product.cheapestPesewas === null
+										? formatPesewas(product.basePricePesewas)
+										: formatPesewas(product.cheapestPesewas)}
+								</td>
+								<td class="px-5 py-3 text-right">
+									<span
+										class:list={[
+											'inline-block px-3 py-1 text-[0.8125rem] font-medium',
+											product.isActive
+												? 'bg-forest-700 text-butter'
+												: 'bg-forest-700/15 text-forest-700',
+										]}
+									>
+										{product.isActive ? 'Live' : 'Hidden'}
+									</span>
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		)
+	}
+
+	<p class="mt-6 text-[0.8125rem] leading-relaxed text-forest-700/60">
+		A bouquet with no sizes has nothing a customer can add to their basket, so
+		it will not appear in the shop even when it is set to live.
+	</p>
+</AdminLayout>

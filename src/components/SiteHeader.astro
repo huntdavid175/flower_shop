@@ -1,0 +1,171 @@
+---
+/*
+ * Nav collapses to a menu button below 3xl (1920px) and expands to inline links
+ * above it, on every page.
+ *
+ * `overlay` is separate from that, and only for pages that open with a
+ * full-bleed hero. At 3xl it lifts the bar out of flow and makes it
+ * transparent, so the photograph runs unbroken behind the logo and links.
+ *
+ * It must stay opt-in: on a page with no hero, a transparent bar would put
+ * cream text on a pale background and let the content slide up underneath it.
+ */
+import { getCartCount } from '../lib/cart';
+
+interface Props {
+	overlay?: boolean;
+}
+
+const { overlay = false } = Astro.props;
+
+// Rendered server-side on every page, so the badge is always accurate — the
+// cart cookie is httpOnly and cannot be read by client script.
+const cartCount = await getCartCount(Astro.cookies);
+const links = [
+	{ label: 'Home', href: '/' },
+	{ label: 'About Us', href: '/about' },
+	{ label: 'Shop', href: '/shop' },
+	{ label: 'How It Works', href: '/guide' },
+	{ label: 'Contact', href: '/contact' },
+];
+
+const { pathname } = Astro.url;
+---
+
+<header
+	class:list={[
+		'relative z-30 border-b border-white/10 bg-teal-900',
+		overlay &&
+			'3xl:absolute 3xl:inset-x-0 3xl:top-0 3xl:border-transparent 3xl:bg-transparent',
+	]}
+>
+	<div
+		class="flex h-16 items-center justify-between px-5 sm:px-8 md:h-[5.375rem] lg:px-10 3xl:mx-auto 3xl:w-full 3xl:max-w-page"
+	>
+		<a
+			href="/"
+			class="font-logo text-[clamp(1.75rem,1.7vw,2.25rem)] leading-none tracking-normal text-cream"
+		>
+			La Fleur
+		</a>
+
+		<nav aria-label="Main">
+			<ul class="hidden items-center gap-8 3xl:flex">
+				{
+					links.map(({ label, href }) => (
+						<li>
+							<a
+								href={href}
+								aria-current={pathname === href ? 'page' : undefined}
+								class="relative text-[0.875rem] font-medium text-cream/90 transition-colors after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-cream after:transition-all after:duration-300 hover:text-cream hover:after:w-full"
+							>
+								{label}
+							</a>
+						</li>
+					))
+				}
+			</ul>
+		</nav>
+
+		<div class="flex items-center gap-2">
+			{/*
+			  Not in the template — the design predates the cart. Styled to match
+			  the rest of the bar rather than invented from scratch.
+			*/}
+			<a
+				href="/cart"
+				class="relative -mr-1 p-2 text-cream transition-opacity hover:opacity-80"
+			>
+				<span class="sr-only">
+					{cartCount === 0
+						? 'Cart, empty'
+						: `Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}
+				</span>
+				<svg
+					width="22"
+					height="22"
+					viewBox="0 0 24 24"
+					fill="none"
+					aria-hidden="true"
+				>
+					<path
+						d="M4 7h16l-1.2 11.2a2 2 0 0 1-2 1.8H7.2a2 2 0 0 1-2-1.8L4 7zM8.5 7V5.5a3.5 3.5 0 0 1 7 0V7"
+						stroke="currentColor"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"></path>
+				</svg>
+				{
+					cartCount > 0 && (
+						<span
+							aria-hidden="true"
+							class="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-600 px-1 text-[0.625rem] font-semibold text-white"
+						>
+							{cartCount > 99 ? '99+' : cartCount}
+						</span>
+					)
+				}
+			</a>
+
+			{/* Two-rule menu mark, matching the reference. */}
+			<button
+				type="button"
+				id="menu-toggle"
+				class="-mr-2 flex flex-col items-end gap-[0.6rem] p-2 text-cream 3xl:hidden"
+				aria-label="Open menu"
+				aria-expanded="false"
+				aria-controls="site-menu"
+			>
+				<span class="block h-0.5 w-8 bg-current transition-transform duration-300 sm:w-9"></span>
+				<span class="block h-0.5 w-8 bg-current transition-transform duration-300 sm:w-9"></span>
+			</button>
+		</div>
+	</div>
+
+	<div
+		id="site-menu"
+		hidden
+		class="absolute inset-x-0 top-full border-b border-white/10 bg-teal-900 3xl:hidden"
+	>
+		<ul class="flex flex-col px-5 py-2 sm:px-8 lg:px-10">
+			{
+				links.map(({ label, href }) => (
+					<li class="border-b border-white/10 last:border-0">
+						<a
+							href={href}
+							aria-current={pathname === href ? 'page' : undefined}
+							class="block py-4 text-cream/90 transition-colors hover:text-cream"
+						>
+							{label}
+						</a>
+					</li>
+				))
+			}
+		</ul>
+	</div>
+</header>
+
+<script>
+	const toggle = document.getElementById('menu-toggle');
+	const menu = document.getElementById('site-menu');
+
+	function setOpen(open: boolean) {
+		if (!toggle || !menu) return;
+		toggle.setAttribute('aria-expanded', String(open));
+		toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+		menu.hidden = !open;
+	}
+
+	toggle?.addEventListener('click', () => {
+		setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+	});
+
+	// Escape closes, and focus returns to the button so keyboard users are not
+	// stranded at the top of the document.
+	document.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape' && toggle?.getAttribute('aria-expanded') === 'true') {
+			setOpen(false);
+			toggle.focus();
+		}
+	});
+</script>

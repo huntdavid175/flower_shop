@@ -1,0 +1,215 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { clearCart } from '../../lib/cart';
+import { getOrderByReference, getMessages } from '../../lib/orders';
+import { formatPesewas } from '../../lib/money';
+import { DELIVERY_SLOTS } from '../../lib/checkout';
+import { isPaystackConfigured } from '../../lib/paystack';
+import { settleOrder } from '../../lib/settle';
+
+/*
+ * Where Paystack sends the buyer back to.
+ *
+ * The reference arrives in the query string, so it is attacker-controlled and
+ * proves nothing on its own. It is only ever used to look an order up and to
+ * ask Paystack directly what happened — never as evidence of payment. Someone
+ * pasting another order's reference here learns only what that page shows for
+ * an unpaid order, and cannot cause a charge to be recorded.
+ */
+
+// Paystack sends both; `trxref` is the legacy name and is still populated.
+const reference =
+	Astro.url.searchParams.get('reference') ??
+	Astro.url.searchParams.get('trxref') ??
+	'';
+
+let order = reference ? await getOrderByReference(reference) : null;
+let settling = false;
+
+/*
+ * Settle here as well as in the webhook.
+ *
+ * Not because the redirect is trusted, but because the webhook can be seconds
+ * behind and a buyer who has just paid should not be told "we are waiting".
+ * This runs the same verified, amount-checked path the webhook uses, so the two
+ * cannot disagree — whichever arrives first wins and the other becomes a no-op.
+ */
+if (order && order.status !== 'paid' && isPaystackConfigured()) {
+	const result = await settleOrder(reference);
+	if (result.outcome === 'paid') {
+		order = await getOrderByReference(reference);
+	} else if (result.outcome === 'unavailable' || result.outcome === 'not_successful') {
+		settling = true;
+	} else if (result.outcome === 'mismatch') {
+		console.error(
+			`PAYMENT MISMATCH on ${reference}: paid ${result.paidPesewas}, order is ${result.expectedPesewas}.`,
+		);
+		settling = true;
+	}
+}
+
+const paid = order?.status === 'paid';
+
+// The basket has done its job. Only cleared once the money is confirmed, so a
+// failed payment leaves the buyer's bouquets where they left them.
+if (paid) clearCart(Astro.cookies);
+
+const messages = order && paid ? await getMessages(order.id) : [];
+const withVoice = messages.filter((message) => message.audioPath).length;
+const slotLabel =
+	DELIVERY_SLOTS.find((slot) => slot.value === order?.deliverySlot)?.label ??
+	order?.deliverySlot ??
+	'';
+---
+
+<Layout title={paid ? 'Order confirmed — La Fleur' : 'Confirming your order — La Fleur'}>
+	<section class="bg-butter py-20 lg:py-28">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<div class="mx-auto w-full max-w-2xl">
+				{
+					!order && (
+						<div class="border border-forest-700 bg-white p-8 text-center">
+							<h1 class="font-display text-[1.75rem] text-forest-900">
+								We could not find that order
+							</h1>
+							<p class="mt-3 text-[0.9375rem] text-forest-700/80">
+								If you have just paid, your receipt from Paystack has the
+								reference. Send it to us and we will find it.
+							</p>
+							<a
+								href="/shop"
+								class="mt-8 inline-flex items-center gap-3 bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+							>
+								Back to the shop
+							</a>
+						</div>
+					)
+				}
+
+				{
+					order && paid && (
+						<div class="border border-forest-700 bg-white p-8 sm:p-10">
+							<span
+								class="flex h-14 w-14 items-center justify-center rounded-full bg-forest-700"
+								aria-hidden="true"
+							>
+								<svg width="26" height="20" viewBox="0 0 26 20" fill="none">
+									<path
+										d="M2 10.5l8 7L24 2"
+										stroke="#fdfbe8"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							</span>
+
+							<h1 class="mt-6 font-display text-[clamp(1.75rem,3vw,2.5rem)] leading-tight text-forest-900">
+								Thank you — it&rsquo;s paid
+							</h1>
+							<p class="mt-3 text-[0.9375rem] leading-[1.7] text-forest-700/80">
+								We have sent a receipt to {order.buyerEmail}. The flowers go out
+								to {order.recipientName} on the date below.
+							</p>
+
+							<dl class="mt-8 space-y-3 border-t border-forest-700/20 pt-6 text-[0.9375rem] text-forest-700">
+								<div class="flex justify-between gap-4">
+									<dt class="text-forest-700/70">Order</dt>
+									<dd class="font-medium">{order.reference}</dd>
+								</div>
+								<div class="flex justify-between gap-4">
+									<dt class="text-forest-700/70">Delivery</dt>
+									<dd class="text-right font-medium">
+										{order.deliveryDate}
+										<span class="block text-[0.8125rem] font-normal text-forest-700/70">
+											{slotLabel}
+										</span>
+									</dd>
+								</div>
+								<div class="flex justify-between gap-4">
+									<dt class="text-forest-700/70">Subtotal</dt>
+									<dd>{formatPesewas(order.subtotalPesewas)}</dd>
+								</div>
+								<div class="flex justify-between gap-4">
+									<dt class="text-forest-700/70">Delivery fee</dt>
+									<dd>{formatPesewas(order.deliveryFeePesewas)}</dd>
+								</div>
+								<div class="flex justify-between gap-4 border-t border-forest-700/20 pt-3 text-[1.0625rem] font-semibold">
+									<dt>Paid</dt>
+									<dd>{formatPesewas(order.totalPesewas)}</dd>
+								</div>
+							</dl>
+
+							{withVoice > 0 && (
+								<p class="mt-8 border border-forest-700/25 bg-butter p-5 text-[0.9375rem] leading-[1.7] text-forest-700">
+									Your voice message is saved. We print a card with a code on
+									it, and {order.recipientName} hears you when they scan it.
+								</p>
+							)}
+
+							<a
+								href="/shop"
+								class="mt-8 inline-flex items-center gap-3 bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+							>
+								Continue shopping
+							</a>
+						</div>
+					)
+				}
+
+				{
+					order && !paid && (
+						<div class="border border-forest-700 bg-white p-8 text-center">
+							<h1 class="font-display text-[1.75rem] text-forest-900">
+								{settling ? 'We are still confirming' : 'This order is not paid yet'}
+							</h1>
+							<p class="mt-3 text-[0.9375rem] leading-[1.7] text-forest-700/80">
+								{settling
+									? 'Your bank is taking a moment. This page will update itself — nothing more is needed from you.'
+									: 'If you closed the payment page before finishing, you can pick up where you left off.'}
+							</p>
+
+							<p class="mt-6 text-[0.875rem] text-forest-700/70">
+								Order {order.reference} · {formatPesewas(order.totalPesewas)}
+							</p>
+
+							<div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+								<a
+									href="/order/checkout"
+									class="inline-flex items-center gap-3 bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+								>
+									Try payment again
+								</a>
+								<a
+									href="/cart"
+									class="text-[0.875rem] text-forest-700 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+								>
+									Back to cart
+								</a>
+							</div>
+						</div>
+					)
+				}
+			</div>
+		</div>
+	</section>
+</Layout>
+
+{
+	/*
+	 * A payment awaiting its webhook resolves in seconds. Reload a few times,
+	 * then stop — an endless poll on an abandoned tab is a request every few
+	 * seconds forever.
+	 */
+	order && !paid && settling && (
+		<script is:inline>
+			(() => {
+				const url = new URL(window.location.href);
+				const tries = Number(url.searchParams.get('t') ?? 0);
+				if (tries >= 5) return;
+				url.searchParams.set('t', String(tries + 1));
+				setTimeout(() => window.location.replace(url.toString()), 3000);
+			})();
+		</script>
+	)
+}

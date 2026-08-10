@@ -1,0 +1,204 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { salesReport } from '../../lib/admin';
+import { formatPesewas } from '../../lib/money';
+
+const staff = Astro.locals.staff!;
+
+function isoDaysAgo(days: number): string {
+	const date = new Date();
+	date.setUTCDate(date.getUTCDate() - days);
+	return date.toISOString().slice(0, 10);
+}
+
+const today = new Date().toISOString().slice(0, 10);
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Anything unparseable falls back rather than reaching the query.
+const rawFrom = Astro.url.searchParams.get('from') ?? '';
+const rawTo = Astro.url.searchParams.get('to') ?? '';
+let from = DATE.test(rawFrom) ? rawFrom : isoDaysAgo(29);
+let to = DATE.test(rawTo) ? rawTo : today;
+// A backwards range returns nothing and looks like a bug rather than a typo.
+if (from > to) [from, to] = [to, from];
+
+const presets = [
+	{ label: 'Last 7 days', from: isoDaysAgo(6), to: today },
+	{ label: 'Last 30 days', from: isoDaysAgo(29), to: today },
+	{ label: 'Last 90 days', from: isoDaysAgo(89), to: today },
+	{ label: 'This year', from: `${today.slice(0, 4)}-01-01`, to: today },
+];
+
+const report = await salesReport(from, to);
+
+// Bars are drawn relative to the busiest day, so a quiet period still reads.
+const peakDay = Math.max(...report.byDay.map((day) => day.revenuePesewas), 1);
+const peakProduct = Math.max(...report.byProduct.map((p) => p.revenuePesewas), 1);
+
+const card = 'border border-forest-700/25 bg-white p-6';
+const statLabel = 'text-[0.8125rem] uppercase tracking-wide text-forest-700/55';
+const statValue = 'mt-2 font-display text-[1.75rem] leading-none text-forest-900';
+const field =
+	'mt-1 rounded-none border border-forest-700 bg-white px-3 py-2 text-[0.875rem] text-forest-900 outline-none focus:border-terracotta-700';
+---
+
+<AdminLayout title="Reports" staffName={staff.name ?? staff.email}>
+	<h1 class="font-display text-[1.875rem] text-forest-900">Sales</h1>
+	<p class="mt-2 text-[0.9375rem] text-forest-700/70">
+		Counted from when the money arrived, so unpaid baskets never appear here.
+	</p>
+
+	<div class="mt-6 flex flex-wrap gap-2">
+		{
+			presets.map((preset) => (
+				<a
+					href={`/admin/reports?from=${preset.from}&to=${preset.to}`}
+					class:list={[
+						'border px-4 py-2 text-[0.875rem] transition-colors',
+						from === preset.from && to === preset.to
+							? 'border-terracotta-700 bg-terracotta-700 text-white'
+							: 'border-forest-700/40 text-forest-700 hover:border-forest-700',
+					]}
+				>
+					{preset.label}
+				</a>
+			))
+		}
+	</div>
+
+	<form method="get" class="mt-4 flex flex-wrap items-end gap-4">
+		<label class="text-[0.8125rem] text-forest-700/70">
+			From
+			<input type="date" name="from" value={from} max={today} class={`block ${field}`} />
+		</label>
+		<label class="text-[0.8125rem] text-forest-700/70">
+			To
+			<input type="date" name="to" value={to} max={today} class={`block ${field}`} />
+		</label>
+		<button
+			type="submit"
+			class="bg-forest-700 px-5 py-2.5 text-[0.875rem] font-semibold text-butter transition-colors hover:bg-forest-900"
+		>
+			Show
+		</button>
+	</form>
+
+	<div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+		<div class={card}>
+			<p class={statLabel}>Revenue</p>
+			<p class={statValue}>{formatPesewas(report.revenuePesewas)}</p>
+			<p class="mt-2 text-[0.8125rem] text-forest-700/60">
+				including {formatPesewas(report.deliveryPesewas)} delivery
+			</p>
+		</div>
+		<div class={card}>
+			<p class={statLabel}>Orders</p>
+			<p class={statValue}>{report.orderCount}</p>
+			<p class="mt-2 text-[0.8125rem] text-forest-700/60">
+				{report.withVoiceCount} with a voice message
+			</p>
+		</div>
+		<div class={card}>
+			<p class={statLabel}>Average order</p>
+			<p class={statValue}>{formatPesewas(report.averageOrderPesewas)}</p>
+		</div>
+		<div class={card}>
+			<p class={statLabel}>Refunded</p>
+			<p class={statValue}>{formatPesewas(report.refundedPesewas)}</p>
+			<p class="mt-2 text-[0.8125rem] text-forest-700/60">
+				{report.refundedCount}
+				{report.refundedCount === 1 ? 'order' : 'orders'}
+			</p>
+		</div>
+	</div>
+
+	{
+		report.orderCount === 0 ? (
+			<p class="mt-8 border border-forest-700/25 bg-white p-10 text-center text-[0.9375rem] text-forest-700/70">
+				No paid orders between {from} and {to}.
+			</p>
+		) : (
+			<div class="mt-6 grid gap-6 lg:grid-cols-2 lg:items-start">
+				<section class={card}>
+					<h2 class="text-[1.0625rem] font-semibold text-forest-700">
+						Day by day
+					</h2>
+					<ul class="mt-5 space-y-3">
+						{report.byDay.map((day) => (
+							<li>
+								<div class="flex items-baseline justify-between gap-4 text-[0.875rem]">
+									<span class="text-forest-700">{day.date}</span>
+									<span class="font-medium text-forest-900">
+										{formatPesewas(day.revenuePesewas)}
+										<span class="ml-2 font-normal text-forest-700/55">
+											{day.orders} {day.orders === 1 ? 'order' : 'orders'}
+										</span>
+									</span>
+								</div>
+								<div class="mt-1.5 h-1.5 w-full bg-forest-700/10">
+									<div
+										class="h-full bg-terracotta-700"
+										style={`width:${Math.max((day.revenuePesewas / peakDay) * 100, 2)}%`}
+									/>
+								</div>
+							</li>
+						))}
+					</ul>
+				</section>
+
+				<section class={card}>
+					<h2 class="text-[1.0625rem] font-semibold text-forest-700">
+						What sold
+					</h2>
+					<ul class="mt-5 space-y-3">
+						{report.byProduct.map((product) => (
+							<li>
+								<div class="flex items-baseline justify-between gap-4 text-[0.875rem]">
+									<span class="text-forest-700">
+										{product.name}
+										<span class="ml-2 text-forest-700/55">×{product.quantity}</span>
+									</span>
+									<span class="font-medium text-forest-900">
+										{formatPesewas(product.revenuePesewas)}
+									</span>
+								</div>
+								<div class="mt-1.5 h-1.5 w-full bg-forest-700/10">
+									<div
+										class="h-full bg-forest-700"
+										style={`width:${Math.max((product.revenuePesewas / peakProduct) * 100, 2)}%`}
+									/>
+								</div>
+							</li>
+						))}
+					</ul>
+				</section>
+
+				<section class={`${card} lg:col-span-2`}>
+					<h2 class="text-[1.0625rem] font-semibold text-forest-700">
+						Where it went
+					</h2>
+					<table class="mt-4 w-full text-left text-[0.875rem]">
+						<thead>
+							<tr class="border-b border-forest-700/20 text-[0.8125rem] uppercase tracking-wide text-forest-700/55">
+								<th class="py-2 font-medium">Area</th>
+								<th class="py-2 text-right font-medium">Orders</th>
+								<th class="py-2 text-right font-medium">Delivery fees</th>
+							</tr>
+						</thead>
+						<tbody>
+							{report.byZone.map((zone) => (
+								<tr class="border-b border-forest-700/10 last:border-0">
+									<td class="py-2.5 text-forest-700">{zone.name}</td>
+									<td class="py-2.5 text-right text-forest-900">{zone.orders}</td>
+									<td class="py-2.5 text-right text-forest-900">
+										{formatPesewas(zone.feesPesewas)}
+									</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</section>
+			</div>
+		)
+	}
+</AdminLayout>

@@ -1,0 +1,299 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import {
+	countProductsIn,
+	createCategory,
+	deleteCategory,
+	getAdminCategory,
+	updateCategory,
+	type AdminCategory,
+} from '../../../lib/categories-admin';
+import { deleteImage, uploadImage } from '../../../lib/images';
+import { toSlug } from '../../../lib/products-admin';
+
+const staff = Astro.locals.staff!;
+const id = String(Astro.params.id ?? '');
+const isNew = id === 'new';
+
+let category: AdminCategory | null = null;
+if (!isNew) {
+	category = await getAdminCategory(id);
+	if (!category) return new Response('Category not found', { status: 404 });
+}
+
+let values = {
+	name: category?.name ?? '',
+	slug: category?.slug ?? '',
+	sortOrder: String(category?.sortOrder ?? 0),
+	isActive: category ? category.isActive : true,
+};
+
+let problem: string | null = null;
+let notice: string | null = null;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const text = (key: string) => String(form.get(key) ?? '').trim();
+
+	// --- Deleting ---
+	if (form.get('intent') === 'delete' && !isNew) {
+		try {
+			await deleteImage(category!.imageUrl);
+			await deleteCategory(id);
+			return Astro.redirect('/admin/categories', 303);
+		} catch (cause) {
+			problem = cause instanceof Error ? cause.message : 'Could not delete.';
+		}
+	}
+
+	if (!problem) {
+		values = {
+			name: text('name'),
+			slug: text('slug'),
+			sortOrder: text('sortOrder'),
+			isActive: form.get('isActive') === 'on',
+		};
+
+		if (values.name.length < 2) problem = 'Give the category a name.';
+
+		if (!problem) {
+			try {
+				/*
+				 * Derived only when creating or when left blank. A category slug is
+				 * the `?category=` value in links people have already shared, so
+				 * regenerating it whenever the name is edited would break them.
+				 */
+				const slug = values.slug ? toSlug(values.slug) : toSlug(values.name);
+				if (!slug) throw new Error('That name has no letters or numbers to build a web address from.');
+
+				const upload = form.get('image');
+				let imageUrl: string | null | undefined;
+				if (upload instanceof File && upload.size > 0) {
+					imageUrl = await uploadImage(upload);
+				} else if (form.get('removeImage') === 'on') {
+					imageUrl = null;
+				}
+
+				const input = {
+					name: values.name,
+					slug,
+					sortOrder: Number(values.sortOrder) || 0,
+					isActive: values.isActive,
+					imageUrl,
+				};
+
+				const categoryId = isNew ? await createCategory(input) : id;
+				if (!isNew) await updateCategory(id, input);
+
+				// Only once the replacement is safely stored.
+				if (imageUrl !== undefined && category?.imageUrl && category.imageUrl !== imageUrl) {
+					await deleteImage(category.imageUrl);
+				}
+
+				return Astro.redirect(`/admin/categories/${categoryId}?saved=1`, 303);
+			} catch (cause) {
+				const message = cause instanceof Error ? cause.message : 'Could not save.';
+				problem = message.includes('duplicate key')
+					? 'Another category already uses that web address. Change the slug.'
+					: message;
+			}
+		}
+	}
+}
+
+if (Astro.url.searchParams.get('saved')) notice = 'Saved.';
+
+// Shown in the delete warning, so nobody removes a category without knowing
+// what it is attached to.
+const productCount = isNew ? 0 : await countProductsIn(id);
+
+const label = 'block text-[0.9375rem] font-medium text-forest-700';
+const field =
+	'mt-2 w-full rounded-none border border-forest-700 bg-white px-4 py-3 text-[0.9375rem] text-forest-900 outline-none transition-colors duration-200 focus:border-terracotta-700';
+const card = 'border border-forest-700/25 bg-white p-6';
+---
+
+<AdminLayout
+	title={isNew ? 'Add a category' : (category?.name ?? 'Category')}
+	staffName={staff.name ?? staff.email}
+>
+	<a
+		href="/admin/categories"
+		class="text-[0.875rem] text-forest-700 underline underline-offset-4 hover:text-terracotta-700"
+	>
+		← All categories
+	</a>
+
+	<div class="mt-4 flex flex-wrap items-baseline justify-between gap-4">
+		<h1 class="font-display text-[1.875rem] text-forest-900">
+			{isNew ? 'Add a category' : category?.name}
+		</h1>
+		{
+			!isNew && category && (
+				<a
+					href={`/shop?category=${category.slug}`}
+					target="_blank"
+					rel="noopener"
+					class="text-[0.875rem] text-forest-700 underline underline-offset-4 hover:text-terracotta-700"
+				>
+					View in the shop ↗
+				</a>
+			)
+		}
+	</div>
+
+	{
+		notice && (
+			<p class="mt-5 border border-forest-700 bg-white px-5 py-3 text-[0.9375rem] text-forest-700">
+				{notice}
+			</p>
+		)
+	}
+	{
+		problem && (
+			<p
+				class="mt-5 border border-terracotta-700 bg-white px-5 py-3 text-[0.9375rem] text-terracotta-700"
+				role="alert"
+			>
+				{problem}
+			</p>
+		)
+	}
+
+	<form
+		method="post"
+		enctype="multipart/form-data"
+		class="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-start"
+	>
+		<section class={card}>
+			<h2 class="text-[1.0625rem] font-semibold text-forest-700">The category</h2>
+
+			<label class="mt-5 block">
+				<span class={label}>Name</span>
+				<input type="text" name="name" value={values.name} required class={field} />
+			</label>
+
+			<label class="mt-5 block">
+				<span class={label}>
+					Web address
+					<span class="font-normal text-forest-700/60">
+						(leave empty and we will build it from the name)
+					</span>
+				</span>
+				<input
+					type="text"
+					name="slug"
+					value={values.slug}
+					placeholder="bouquets"
+					class={`${field} font-mono text-[0.875rem]`}
+				/>
+				{!isNew && (
+					<span class="mt-1.5 block text-[0.8125rem] text-forest-700/60">
+						Used in ?category= links. Changing it breaks any already shared.
+					</span>
+				)}
+			</label>
+
+			<div class="mt-5 grid grid-cols-2 gap-4">
+				<label class="block">
+					<span class={label}>Order</span>
+					<input type="number" name="sortOrder" value={values.sortOrder} class={field} />
+					<span class="mt-1.5 block text-[0.8125rem] text-forest-700/60">
+						Lowest first.
+					</span>
+				</label>
+			</div>
+
+			<label class="mt-5 flex items-center gap-3 text-[0.9375rem] text-forest-700">
+				<input
+					type="checkbox"
+					name="isActive"
+					checked={values.isActive}
+					class="accent-terracotta-700"
+				/>
+				Show this on the home page
+			</label>
+		</section>
+
+		<aside class="space-y-6">
+			<section class={card}>
+				<h2 class="text-[1.0625rem] font-semibold text-forest-700">Picture</h2>
+				<p class="mt-2 text-[0.875rem] text-forest-700/70">
+					This is what appears behind the tile on the home page.
+				</p>
+
+				{
+					category?.imageUrl && (
+						<>
+							<span class="mt-4 block aspect-4/3 w-full overflow-hidden bg-forest-700/10">
+								<img src={category.imageUrl} alt="" class="h-full w-full object-cover" />
+							</span>
+							<label class="mt-3 flex items-center gap-2 text-[0.875rem] text-forest-700">
+								<input type="checkbox" name="removeImage" class="accent-terracotta-700" />
+								Remove this picture
+							</label>
+						</>
+					)
+				}
+
+				<label class="mt-4 block">
+					<span class="text-[0.8125rem] text-forest-700/70">
+						{category?.imageUrl ? 'Replace it' : 'Upload one'}
+					</span>
+					<input
+						type="file"
+						name="image"
+						accept="image/jpeg,image/png,image/webp,image/avif"
+						class="mt-2 block w-full text-[0.875rem] text-forest-700 file:mr-3 file:border file:border-forest-700 file:bg-white file:px-4 file:py-2 file:text-[0.875rem] file:font-semibold file:text-forest-700"
+					/>
+					<span class="mt-2 block text-[0.8125rem] text-forest-700/60">
+						JPEG, PNG, WebP or AVIF. Up to 5MB. Landscape suits the tiles.
+					</span>
+				</label>
+			</section>
+
+			<button
+				type="submit"
+				class="w-full bg-terracotta-700 px-8 py-4 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+			>
+				{isNew ? 'Create category' : 'Save changes'}
+			</button>
+		</aside>
+	</form>
+
+	{
+		!isNew && (
+			<section class="mt-6 border border-terracotta-700/40 bg-white p-6">
+				<h2 class="text-[1.0625rem] font-semibold text-terracotta-700">
+					Delete this category
+				</h2>
+				<p class="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-forest-700/80">
+					{productCount === 0
+						? 'Nothing is using it, so this is safe.'
+						: `${productCount} ${productCount === 1 ? 'bouquet is' : 'bouquets are'} in this category. They will stay on sale and simply become uncategorised — deleting a category never removes stock.`}
+				</p>
+				<form method="post" class="mt-4" data-confirm="Delete this category? The bouquets in it stay on sale.">
+					<input type="hidden" name="intent" value="delete" />
+					<button
+						type="submit"
+						class="border border-terracotta-700 px-5 py-2.5 text-[0.875rem] font-semibold text-terracotta-700 transition-colors hover:bg-terracotta-700 hover:text-white"
+					>
+						Delete category
+					</button>
+				</form>
+			</section>
+		)
+	}
+</AdminLayout>
+
+<script>
+	document
+		.querySelectorAll<HTMLFormElement>('form[data-confirm]')
+		.forEach((form) => {
+			form.addEventListener('submit', (event) => {
+				if (!window.confirm(form.dataset.confirm ?? 'Are you sure?')) {
+					event.preventDefault();
+				}
+			});
+		});
+</script>

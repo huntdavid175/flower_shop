@@ -1,0 +1,98 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { listAdminCategories } from '../../../lib/categories-admin';
+
+const staff = Astro.locals.staff!;
+const categories = await listAdminCategories();
+const live = categories.filter((c) => c.isActive).length;
+---
+
+<AdminLayout title="Categories" staffName={staff.name ?? staff.email}>
+	<div class="flex flex-wrap items-baseline justify-between gap-4">
+		<div>
+			<h1 class="font-display text-[1.875rem] text-forest-900">Categories</h1>
+			<p class="mt-2 text-[0.9375rem] text-forest-700/70">
+				{live} of {categories.length} showing on the home page.
+			</p>
+		</div>
+		<a
+			href="/admin/categories/new"
+			class="bg-terracotta-700 px-6 py-3 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+		>
+			Add a category
+		</a>
+	</div>
+
+	{
+		categories.length === 0 ? (
+			<p class="mt-10 border border-forest-700/25 bg-white p-10 text-center text-[0.9375rem] text-forest-700/70">
+				No categories yet.
+			</p>
+		) : (
+			<div class="mt-8 overflow-x-auto border border-forest-700/25 bg-white">
+				<table class="w-full min-w-[42rem] border-collapse text-left">
+					<thead>
+						<tr class="border-b border-forest-700/20 text-[0.8125rem] uppercase tracking-wide text-forest-700/60">
+							<th class="px-5 py-3 font-medium">Category</th>
+							<th class="px-5 py-3 font-medium">Bouquets</th>
+							<th class="px-5 py-3 font-medium">Order</th>
+							<th class="px-5 py-3 text-right font-medium">On the home page</th>
+						</tr>
+					</thead>
+					<tbody>
+						{categories.map((category) => (
+							<tr class="border-b border-forest-700/10 last:border-0 hover:bg-butter/60">
+								<td class="px-5 py-3">
+									<a href={`/admin/categories/${category.id}`} class="flex items-center gap-4">
+										<span class="block h-12 w-16 shrink-0 overflow-hidden bg-forest-700/10">
+											{category.imageUrl && (
+												<img
+													src={category.imageUrl}
+													alt=""
+													loading="lazy"
+													class="h-full w-full object-cover"
+												/>
+											)}
+										</span>
+										<span>
+											<span class="block font-medium text-forest-900 underline underline-offset-4">
+												{category.name}
+											</span>
+											<span class="mt-0.5 block font-mono text-[0.75rem] text-forest-700/50">
+												?category={category.slug}
+											</span>
+										</span>
+									</a>
+								</td>
+								<td class="px-5 py-3 text-[0.9375rem] text-forest-700">
+									{category.productCount}
+								</td>
+								<td class="px-5 py-3 text-[0.9375rem] text-forest-700">
+									{category.sortOrder}
+								</td>
+								<td class="px-5 py-3 text-right">
+									<span
+										class:list={[
+											'inline-block px-3 py-1 text-[0.8125rem] font-medium',
+											category.isActive
+												? 'bg-forest-700 text-butter'
+												: 'bg-forest-700/15 text-forest-700',
+										]}
+									>
+										{category.isActive ? 'Live' : 'Hidden'}
+									</span>
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+		)
+	}
+
+	<p class="mt-6 text-[0.8125rem] leading-relaxed text-forest-700/60">
+		Categories are ordered by the number in “Order”, lowest first. A category
+		with no picture still works everywhere except the home page tiles, which
+		are built from the image.
+	</p>
+</AdminLayout>
