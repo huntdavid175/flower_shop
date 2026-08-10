@@ -15,16 +15,23 @@
 >
 	{/*
 	  The photograph carries its own teal backdrop, so it meets the section
-	  colour without a seam. Anchored right-of-centre to keep the subject in
-	  frame as the viewport narrows and the text column takes more room.
+	  colour without a seam.
+
+	  Two separate images rather than one crop: the landscape frame loses its
+	  subject entirely on a phone. `<picture>` lets the browser fetch only the
+	  one it needs — a phone never downloads the desktop file — and it needs no
+	  JavaScript, so the hero is never blank while a script decides.
 	*/}
-	<img
-		src="/images/header.avif"
-		alt=""
-		class="absolute inset-0 -z-20 h-full w-full object-cover object-[68%_center]"
-		fetchpriority="high"
-		decoding="async"
-	/>
+	<picture>
+		<source media="(min-width: 40rem)" srcset="/images/header.png" />
+		<img
+			src="/images/header-mobile.png"
+			alt=""
+			class="absolute inset-0 -z-20 h-full w-full object-cover object-center sm:object-[68%_center]"
+			fetchpriority="high"
+			decoding="async"
+		/>
+	</picture>
 
 	{/* Fallback ground, visible only where the photograph does not reach. */}
 	<div
@@ -33,15 +40,29 @@
 	>
 	</div>
 
-	{/* Legibility wash over the text column, faded out before the subject. */}
+	{/*
+	  Legibility wash.
+
+	  Now that the copy sits at the top, the wash has to darken the top on a
+	  phone — where the portrait photograph fills the whole frame — and the left
+	  column on wider screens, where the text and the subject sit side by side.
+	*/}
 	<div
-		class="absolute inset-0 -z-10 bg-gradient-to-r from-teal-950/55 from-0% via-teal-950/25 via-30% to-transparent to-55%"
+		class="absolute inset-0 -z-10 bg-gradient-to-b from-teal-950/65 from-0% via-teal-950/25 via-45% to-transparent to-75% sm:bg-gradient-to-r sm:from-teal-950/55 sm:via-teal-950/25 sm:via-30% sm:to-transparent sm:to-55%"
 		aria-hidden="true"
 	>
 	</div>
 
+	{/*
+	  Copy at the top of the frame.
+
+	  No `mt-auto`, so it sits where the flex column starts. The 3xl padding is
+	  larger because the site header stops being a block above the hero at that
+	  width and becomes absolutely positioned over it — 5.375rem of nav plus
+	  breathing room, or the headline would run into the menu.
+	*/}
 	<div
-		class="relative mt-auto w-full px-5 pb-14 sm:px-8 sm:pb-16 lg:px-10 lg:pb-[4.75rem] 3xl:mx-auto 3xl:max-w-page"
+		class="relative w-full px-5 pt-12 sm:px-8 sm:pt-14 lg:px-10 lg:pt-[4.5rem] 3xl:mx-auto 3xl:max-w-page 3xl:pt-[8.75rem]"
 	>
 		<h1 class="font-display text-hero text-white">
 			Fresh Blooms,<br class="hidden sm:block" /> Pure Happiness

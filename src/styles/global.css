@@ -168,3 +168,71 @@
 		}
 	}
 }
+
+/*
+ * Busy state, while a form submission is in flight.
+ *
+ * Driven by `src/scripts/form-pending.ts`, which sets `data-busy` on whichever
+ * button was pressed. Kept here rather than in the script so the appearance is
+ * themed with everything else.
+ */
+@keyframes busy-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+[data-busy] {
+	/* Blocks the second click without `disabled`, which would grey the button
+	   out and drop its name and value from the payload. */
+	pointer-events: none;
+	cursor: progress;
+	opacity: 0.9;
+}
+
+[data-busy]::after {
+	content: '';
+	display: inline-block;
+	width: 0.85em;
+	height: 0.85em;
+	margin-left: 0.6rem;
+	vertical-align: -0.08em;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 9999px;
+	animation: busy-spin 0.62s linear infinite;
+}
+
+/*
+ * The bar that creeps across the top while the next page is fetched.
+ * Terracotta on every background the site uses, so it never disappears.
+ */
+.page-progress {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 100;
+	height: 3px;
+	width: 0;
+	background: var(--color-terracotta-600);
+	box-shadow: 0 0 10px var(--color-terracotta-600);
+	transition: width 0.14s ease-out;
+	pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	/*
+	 * The global reset above freezes every animation, which would leave the
+	 * spinner as a stopped arc that reads as a rendering fault. A steady ring
+	 * instead — the swapped button label is doing the real work here anyway.
+	 */
+	[data-busy]::after {
+		animation: none;
+		border-right-color: currentColor;
+		opacity: 0.45;
+	}
+
+	.page-progress {
+		transition: none;
+	}
+}
