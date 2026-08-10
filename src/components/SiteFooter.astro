@@ -27,7 +27,13 @@ const hours = [
 	{ days: 'Saturday', time: '10am - 2pm' },
 ];
 
-const address = ['Aurora Valley, Westford Heights,', 'Greenlake County, 48219'];
+const address = ['18 Westlands Blvd,', 'Accra, Ghana'];
+
+// Built from the address itself, so "Get Directions" cannot drift from what the
+// footer prints above it.
+const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+	address.join(' ').replace(/,$/, ''),
+)}`;
 
 // Set by /api/newsletter after a submission.
 const newsletterStatus = Astro.url.searchParams.get('newsletter');
@@ -189,7 +195,7 @@ const footerLink =
 					{address.map((line) => <span class="block">{line}</span>)}
 				</address>
 				<a
-					href="https://maps.google.com"
+					href={directionsUrl}
 					target="_blank"
 					rel="noopener noreferrer"
 					class="group mt-6 inline-flex items-center gap-3 bg-terracotta-600 px-6 py-3 text-[0.875rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-700"
