@@ -2,40 +2,40 @@
 import SectionHeader from '../SectionHeader.astro';
 
 /*
- * Placeholder review data, lifted from the template. Moves to Supabase with the
- * orders/reviews tables later.
+ * PLACEHOLDER reviews — written to show the section working, not collected from
+ * anyone. They must be replaced with real ones before the shop takes public
+ * traffic: invented testimonials on a live shop are a claim about people who
+ * never said it, and buyers weigh them when deciding.
  *
- * NOTE: the second image really is spelled `testmonial2.avif` in public/images
- * — missing an "i". Referenced as-is so the card renders; worth renaming the
- * file and this string together.
+ * Moves to Supabase with a reviews table once there are genuine ones to store.
  */
 const testimonials = [
 	{
-		bouquet: 'White Reverie',
+		bouquet: 'Hibiscus Flame',
 		quote:
-			'“ The bouquet arrived fresh, vibrant, and beautifully arranged. My mom loved it! Excellent service, punctual delivery, highly recommend this florist ”',
-		name: 'D D Ken',
+			'“I ordered from London for my mother in East Legon and it reached her before lunch, exactly as promised. She rang me holding it. The little card with the code — hearing my voice is what finished her off.”',
+		name: 'Akosua Mensah',
 		rating: '5.0',
-		image: '/images/testimonial1.avif',
-		imageAlt: 'A florist standing at her workbench in a plant-filled studio',
+		image: '/images/testimonial1.jpg',
+		imageAlt: 'A woman in a white dress holding a bright mixed bouquet in the shop',
 	},
 	{
-		bouquet: 'White Reverie',
+		bouquet: 'Velvet Petals',
 		quote:
-			'“Absolutely beautiful bouquet—fresh, vibrant, and perfectly arranged. My mom was thrilled! Excellent service and right on time.”',
-		name: 'K. Willson',
+			'“Sent these to my sister at her office in Osu for her birthday and the whole floor came over to look. Richer in person than in the photographs, and they were still standing two weeks later.”',
+		name: 'Efua Boateng',
 		rating: '5.0',
-		image: '/images/testmonial2.avif',
-		imageAlt: 'A restaurant table set with a small posy of flowers',
+		image: '/images/testimonial2.jpg',
+		imageAlt: 'A woman seated in a garden holding a plum and pink bouquet',
 	},
 	{
-		bouquet: 'White Reverie',
+		bouquet: 'Rose Elegance',
 		quote:
-			'“I’m so impressed! The bouquet arrived fresh and gorgeous, exactly as pictured. My mom loved it, and delivery was punctual. Highly recommend!”',
-		name: 'Daniel K.',
+			'“The courier rang ahead, then waited when the traffic on Spintex held me up. That is the part I tell people about. Third order this year and not one has disappointed.”',
+		name: 'Nana Ama Adjei',
 		rating: '5.0',
-		image: '/images/testimonial3.avif',
-		imageAlt: 'A florist holding a wrapped bouquet beside a window',
+		image: '/images/testimonial3.jpg',
+		imageAlt: 'A woman in a white suit holding a large bouquet of roses and lilies',
 	},
 ];
 ---

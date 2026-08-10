@@ -14,11 +14,11 @@
 -- ---------------------------------------------------------------------------
 
 insert into public.categories (slug, name, image_url, sort_order) values
-  ('flowers',  'Flowers',  '/images/flower.avif',   1),
-  ('vases',    'Vases',    '/images/vase.avif',     2),
-  ('plants',   'Plants',   '/images/plants.avif',   3),
-  ('pottery',  'Pottery',  '/images/pottery.avif',  4),
-  ('candles',  'Candles',  '/images/candles.avif',  5),
+  ('flowers',  'Flowers',  '/images/flower1.jpg',   1),
+  ('vases',    'Vases',    '/images/product5.avif',     2),
+  ('plants',   'Plants',   '/images/product7.avif',   3),
+  ('pottery',  'Pottery',  '/images/product6.avif',  4),
+  ('candles',  'Candles',  '/images/product8.avif',  5),
   ('seeds',    'Seeds',    '/images/seeds.avif',    6)
 on conflict (slug) do update
   set name = excluded.name,
@@ -50,35 +50,35 @@ on conflict (name) do update
 insert into public.products
   (slug, name, sku, image_url, category_id, base_price_pesewas, compare_price_pesewas, description, sort_order)
 values
-  ('rose-elegance',   'Rose Elegance',   'FS-RE-001', '/images/flower1.avif',
+  ('rose-elegance',   'Rose Elegance',   'FS-RE-001', '/images/flower1.jpg',
      (select id from public.categories where slug = 'flowers'), 5900, 9700,
      'Ranunculus in soft blush and cream, wrapped in matte rose paper and finished with a satin ribbon.', 1),
 
-  ('carnation-love',  'Carnation Love',  'FS-CL-002', '/images/flower2.avif',
+  ('carnation-love',  'Carnation Love',  'FS-CL-002', '/images/flower2.jpg',
      (select id from public.categories where slug = 'flowers'), 7900, 9700,
      'Deep crimson roses spiralled with ruscus, sleeved in charcoal and burgundy. Bold and unmistakably romantic.', 2),
 
-  ('lily-grace',      'Lily Grace',      'FS-LG-003', '/images/flower3.avif',
+  ('lily-grace',      'Lily Grace',      'FS-LG-003', '/images/flower3.jpg',
      (select id from public.categories where slug = 'flowers'), 8900, null,
      'Blue and white hydrangea gathered with broad green foliage in a soft champagne wrap.', 3),
 
-  ('jasmine-whisper', 'Jasmine Whisper', 'FS-JW-004', '/images/flower4.avif',
+  ('jasmine-whisper', 'Jasmine Whisper', 'FS-JW-004', '/images/flower4.jpg',
      (select id from public.categories where slug = 'flowers'), 2400, 8900,
      'Fresh lilac stems with glossy foliage, wrapped in lavender and tied with a matching ribbon.', 4),
 
-  ('natures-touch',   'Nature’s Touch',  'FS-NT-005', '/images/product1.avif',
+  ('natures-touch',   'Nature’s Touch',  'FS-NT-005', '/images/product1.jpg',
      (select id from public.categories where slug = 'vases'), 2300, 7700,
      'Sweet pea and delicate blossom branches arranged across a pair of matte ceramic vases.', 5),
 
-  ('iris-delight',    'Iris Delight',    'FS-ID-006', '/images/product2.avif',
+  ('iris-delight',    'Iris Delight',    'FS-ID-006', '/images/product2.jpg',
      (select id from public.categories where slug = 'flowers'), 5300, 5700,
      'Yellow tulips in a sculptural ring vase — simple, bright and cheerful.', 6),
 
-  ('hibiscus-flame',  'Hibiscus Flame',  'FS-HF-007', '/images/product3.avif',
+  ('hibiscus-flame',  'Hibiscus Flame',  'FS-HF-007', '/images/product3.jpg',
      (select id from public.categories where slug = 'flowers'), 4500, 4800,
      'Scabiosa, carnation and green chrysanthemum in a low stone bowl, styled tall and airy.', 7),
 
-  ('velvet-petals',   'Velvet Petals',   'FS-VP-008', '/images/product4.avif',
+  ('velvet-petals',   'Velvet Petals',   'FS-VP-008', '/images/product4.jpg',
      (select id from public.categories where slug = 'flowers'), 6500, null,
      'Muscari and craspedia in an amber glass bud vase, set against warm ochre and terracotta.', 8),
 
