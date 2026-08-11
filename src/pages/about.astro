@@ -1,0 +1,530 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SocialIcon from '../components/SocialIcon.astro';
+import Testimonials from '../components/sections/Testimonials.astro';
+import {
+	MAX_DAYS_AHEAD,
+	MIN_DAYS_AHEAD,
+	getDeliveryZones,
+} from '../lib/checkout';
+
+// Read from the same source checkout enforces, so the answers below cannot
+// drift from what the shop actually does.
+const zones = await getDeliveryZones();
+const areaNames = zones.map((zone) => zone.name).join(', ');
+const soonest = MIN_DAYS_AHEAD === 1 ? 'the next day' : `${MIN_DAYS_AHEAD} days ahead`;
+
+const faqs = [
+	{
+		q: 'Can I schedule a delivery?',
+		a: `Yes. You pick the day and a time window at checkout — morning, afternoon or evening — from ${soonest} up to ${MAX_DAYS_AHEAD} days ahead, which is useful for a birthday you would rather not trust yourself to remember.`,
+	},
+	{
+		q: 'How do I place an order?',
+		a: 'Browse the collection, choose a bouquet and size, write the card and record a voice message if you would like one, then pay by Mobile Money or card through our secure checkout.',
+	},
+	{
+		q: 'Do you deliver same-day?',
+		a: `Not yet. The soonest we deliver is ${soonest}, because every bouquet is arranged by hand on the morning it goes out rather than pulled ready-made from a fridge.`,
+	},
+	{
+		q: 'How fresh are your flowers?',
+		a: 'Arranged the same morning they are delivered. Kept out of direct sun, with the water changed every other day, most of our bouquets hold for five days to a week in Accra’s heat.',
+	},
+	{
+		q: 'Can I customise my bouquet?',
+		a: 'You choose the size, the written card and the voice message. For a colour scheme or a larger arrangement — a wedding, an office, an event — talk to us and we will quote it separately.',
+	},
+	{
+		q: 'What areas do you deliver to?',
+		a: `We cover ${areaNames}. The fee depends on the area and is added once per order, and you see the exact amount at checkout before paying.`,
+	},
+];
+
+/*
+ * About us.
+ *
+ * PLACEHOLDER FIGURES — the four statistics below are invented to show the
+ * band working. They are a public claim about the business, so they must be
+ * replaced with the shop's real numbers or the section removed before this page
+ * goes live. Same for the photography: these are images already used elsewhere
+ * on the site, standing in until the shop's own About pictures exist.
+ */
+const stats = [
+	{ figure: '2,400+', label: 'Bouquets Delivered' },
+	{ figure: '60+', label: 'Events Decorated' },
+	{ figure: '12', label: 'Accra Neighbourhoods' },
+	{ figure: '4', label: 'Years in Bloom' },
+];
+
+const values = [
+	'Flowers Sourced Fresh',
+	'Arranged By Hand',
+	'Delivered The Same Care',
+	'A Voice With Every Card',
+];
+
+/*
+ * PLACEHOLDER PEOPLE. These six are invented, and naming staff is a public
+ * claim about real individuals — replace them with the actual team, or drop the
+ * section, before this page is live.
+ *
+ * `photo` is deliberately null rather than pointing at the testimonial
+ * photographs: those are customers, and casting them as employees would
+ * misrepresent identifiable people. Until real portraits exist the avatar falls
+ * back to a monogram, which looks deliberate rather than broken.
+ */
+const team = [
+	{ name: 'A. Mensah', role: 'Founder & Lead Florist', photo: null, social: null },
+	{ name: 'K. Boateng', role: 'Creative Floral Designer', photo: null, social: null },
+	{ name: 'E. Owusu', role: 'Customer Happiness Manager', photo: null, social: null },
+	{ name: 'N. Adjei', role: 'Event & Wedding Specialist', photo: null, social: null },
+	{ name: 'Y. Asante', role: 'Gift & Packaging Specialist', photo: null, social: null },
+	{ name: 'K. Danso', role: 'Delivery & Care Expert', photo: null, social: null },
+] satisfies Array<{
+	name: string;
+	role: string;
+	photo: string | null;
+	social: string | null;
+}>;
+
+/** "A. Mensah" -> "AM", for the monogram standing in for a portrait. */
+function monogram(name: string): string {
+	return name
+		.split(/[\s.]+/)
+		.filter(Boolean)
+		.map((part) => part[0])
+		.join('')
+		.slice(0, 2)
+		.toUpperCase();
+}
+
+/*
+ * The four steps, as a horizontal accordion.
+ *
+ * Each panel carries its own colour rather than deriving one, because the
+ * sequence is the point: plum, teal, leaf, terracotta reads as a journey where
+ * four tints of one hue would read as a table.
+ */
+const steps = [
+	{
+		title: 'Choose Bouquet',
+		body: 'Browse our collection of fresh, handpicked flowers and select the arrangement that suits the occasion.',
+		panel: 'bg-plum',
+	},
+	{
+		title: 'Personalise Message',
+		body: 'Write the card, and record your voice if you like. Both travel with the flowers, and the recording is included.',
+		panel: 'bg-teal-800',
+	},
+	{
+		title: 'Pay Securely',
+		body: 'Pay by Mobile Money or card through Paystack, then choose the day and the time window that suits them best.',
+		panel: 'bg-[#2f8b4f]',
+	},
+	{
+		title: 'Delivered By Hand',
+		body: 'We arrange each bouquet the morning it goes out and deliver it ourselves, so it arrives fresh and on time.',
+		panel: 'bg-terracotta-600',
+	},
+];
+
+const sectionHeading =
+	'font-display text-[clamp(1.5rem,2.3vw,2.125rem)] leading-tight text-forest-700';
+const body =
+	'text-[clamp(0.8125rem,0.85vw,0.9375rem)] leading-[1.7] text-forest-700/85';
+---
+
+<Layout
+	title="About Us — La Fleur"
+	description="La Fleur is an Accra florist arranging flowers by hand, and sending a voice with every card."
+	overlayHeader
+>
+	{/* --- Hero --- */}
+	<section class="relative isolate flex h-[clamp(20rem,46vh,30rem)] flex-col overflow-hidden bg-teal-900">
+		<img
+			src="/images/header.png"
+			alt=""
+			class="absolute inset-0 -z-20 h-full w-full object-cover object-[62%_center]"
+			fetchpriority="high"
+			decoding="async"
+		/>
+
+		{/* Reaches further across than the home hero: the title sits low and left,
+		    so the wash has to carry the whole bottom edge, not just one column. */}
+		<div
+			class="absolute inset-0 -z-10 bg-gradient-to-t from-teal-950/80 from-0% via-teal-950/35 via-45% to-teal-950/10 to-100%"
+			aria-hidden="true"
+		>
+		</div>
+
+		<div
+			class="relative mt-auto w-full px-5 pb-10 sm:px-8 sm:pb-12 lg:px-10 lg:pb-14 3xl:mx-auto 3xl:max-w-page"
+		>
+			<h1 class="font-display text-[clamp(2.5rem,5vw,4.5rem)] leading-none text-white">
+				About Us
+			</h1>
+			<p class="mt-4 text-[clamp(0.8125rem,0.9vw,0.9375rem)] text-white/85">
+				Your local source for fresh, beautifully designed flowers
+			</p>
+		</div>
+	</section>
+
+	{/* --- The statement --- */}
+	<section class="bg-butter py-16 lg:py-24">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			{/*
+			  Widths in per cent rather than `ch`, so the right-hand gutter is
+			  guaranteed at every size. A character-based measure looks right until
+			  the type hits its clamp ceiling on a wide screen, at which point the
+			  line simply runs to the container edge.
+			*/}
+			{/*
+			  `font-normal` stated rather than left to inherit: Playfair's lightest
+			  cut is 400, and at this size anything heavier reads as a headline
+			  rather than a sentence.
+			*/}
+			<p
+				class="max-w-full font-display text-[clamp(1.5rem,3.2vw,2.875rem)] leading-[1.28] font-normal text-forest-700 sm:max-w-[98%] lg:max-w-[96%] 3xl:max-w-[93%]"
+			>
+				We are passionate about creating timeless floral designs, blending beauty
+				and creativity to celebrate love, joy, and life&rsquo;s precious moments,
+				bringing happiness and elegance to every occasion we touch.
+			</p>
+		</div>
+	</section>
+
+	{/* --- Mission and values, beside one tall photograph --- */}
+	<section class="bg-butter pb-16 lg:pb-24">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<div class="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1fr)] lg:items-stretch lg:gap-16">
+				{/*
+				  A fixed aspect on narrow screens, where the image sits above the
+				  copy and needs a shape of its own. From `lg` it drops the ratio and
+				  fills the row instead, so its height is exactly the height of the
+				  text beside it — and stays that way if the copy is ever edited,
+				  which a hand-tuned ratio would not.
+				*/}
+				<div class="aspect-4/5 w-full overflow-hidden bg-teal-950 lg:aspect-auto lg:h-full">
+					<img
+						src="/images/trusted.png"
+						alt="A bouquet being arranged by hand in the La Fleur workroom"
+						loading="lazy"
+						decoding="async"
+						class="h-full w-full object-cover"
+					/>
+				</div>
+
+				<div class="lg:pt-6">
+					<h2 class={sectionHeading}>Our Mission</h2>
+					<p class={`mt-5 font-semibold ${body}`}>
+						Our mission is to spread joy, love and positivity through beautiful
+						flowers, thoughtfully arranged to carry what people cannot always
+						say out loud. Every bouquet that leaves our workroom in Accra is put
+						together by hand, for someone in particular, on a day that matters
+						to them.
+					</p>
+
+					<h2 class={`${sectionHeading} mt-16 lg:mt-24`}>Our Value</h2>
+					<ul class="mt-5 space-y-3">
+						{
+							values.map((value) => (
+								<li class="flex items-baseline gap-3">
+									<span
+										class="mt-2 size-1.5 shrink-0 rounded-full bg-forest-700"
+										aria-hidden="true"
+									/>
+									<span class="text-[clamp(0.875rem,0.9vw,0.9375rem)] font-semibold text-forest-700">
+										{value}
+									</span>
+								</li>
+							))
+						}
+					</ul>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	{/* --- The numbers --- */}
+	<section class="bg-butter pb-16 lg:pb-24">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<dl
+				class="grid grid-cols-2 gap-y-10 border-y border-forest-700/25 py-12 lg:grid-cols-4 lg:py-16"
+			>
+				{
+					stats.map((stat) => (
+						<div>
+							<dt class="sr-only">{stat.label}</dt>
+							<dd>
+								<span class="block font-display text-[clamp(2.25rem,4vw,3.5rem)] leading-none text-forest-700">
+									{stat.figure}
+								</span>
+								<span class="mt-4 block font-display text-[clamp(1rem,1.3vw,1.375rem)] text-forest-700">
+									{stat.label}
+								</span>
+							</dd>
+						</div>
+					))
+				}
+			</dl>
+		</div>
+	</section>
+
+	{/* --- The team, introduced --- */}
+	<section class="bg-butter pb-16 text-center lg:pb-24">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<h2 class="font-display text-[clamp(1.875rem,3.4vw,3rem)] leading-tight text-forest-700">
+				Our Blooming Experts
+			</h2>
+			<p
+				class={`mx-auto mt-5 max-w-[46ch] ${body}`}
+			>
+				Behind every bouquet is a small team in Accra who arrange, wrap and
+				deliver by hand &mdash; and who read every message before it goes out.
+			</p>
+
+			{/* --- The team --- */}
+			<div class="mt-12 bg-teal-800 px-6 py-4 text-left sm:px-10 lg:mt-16 lg:px-14 lg:py-6">
+				<ul>
+					{
+						/*
+						 * Two quite different shapes, not one squeezed down.
+						 *
+						 * On a phone the member reads top to bottom — role, name, a
+						 * full-width portrait, then the mark — because a 3.5rem circle
+						 * beside a name shows nothing of a person's face. From `lg` the
+						 * same content becomes one row with a small round avatar, which is
+						 * what makes a list of six scannable.
+						 */
+						team.map((member) => (
+							<li class="flex flex-col border-b border-white/15 py-8 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:gap-x-6 lg:py-7">
+								{/*
+								  Role first in the source, so a screen reader reads
+								  "Founder and Lead Florist, A. Mensah" rather than an
+								  unattached name.
+								*/}
+								<span class="text-[clamp(0.8125rem,0.9vw,0.9375rem)] text-white/85">
+									{member.role}
+								</span>
+
+								<span class="mt-2 flex flex-col lg:mt-0 lg:flex-row lg:items-center lg:justify-center lg:gap-5">
+									<span class="font-display text-[clamp(2rem,3.2vw,3rem)] leading-none text-white">
+										{member.name}
+									</span>
+
+									{member.photo ? (
+										<img
+											src={member.photo}
+											alt=""
+											loading="lazy"
+											decoding="async"
+											class="mt-5 aspect-4/5 w-full object-cover lg:mt-0 lg:aspect-auto lg:size-[4.5rem] lg:shrink-0 lg:rounded-full"
+										/>
+									) : (
+										<span
+											class="mt-5 flex aspect-4/5 w-full items-center justify-center bg-white/10 font-display text-[2.5rem] tracking-wide text-white/70 lg:mt-0 lg:aspect-auto lg:size-[4.5rem] lg:shrink-0 lg:rounded-full lg:text-[1.125rem]"
+											aria-hidden="true"
+										>
+											{monogram(member.name)}
+										</span>
+									)}
+								</span>
+
+								<span class="mt-6 flex justify-start lg:mt-0 lg:justify-end">
+									{member.social ? (
+										<a
+											href={member.social}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="flex size-9 items-center justify-center rounded-[3px] bg-white text-teal-950 transition-colors duration-200 hover:bg-cream lg:size-10"
+										>
+											<span class="sr-only">{member.name} on X</span>
+											<SocialIcon name="x" />
+										</a>
+									) : (
+										/* No handle yet — the mark still sits in the row so the
+										   rhythm holds, but it is not a link to nowhere. */
+										<span
+											class="flex size-9 items-center justify-center rounded-[3px] bg-white/85 text-teal-950 lg:size-10"
+											aria-hidden="true"
+										>
+											<SocialIcon name="x" />
+										</span>
+									)}
+								</span>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+		</div>
+	</section>
+
+	{/* --- How delivery works --- */}
+	<section class="bg-butter pb-16 lg:pb-24">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<div class="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)] lg:gap-14">
+				{/* Heading top, standfirst bottom — the column is as tall as the
+				    accordion beside it, and the two anchor its opposite ends. */}
+				<div class="flex flex-col lg:py-2">
+					<h2 class="font-display text-[clamp(1.875rem,3.4vw,3rem)] leading-tight text-forest-700">
+						How Our Flower Delivery Works
+					</h2>
+					<p class={`mt-6 max-w-[34ch] lg:mt-auto lg:pt-16 ${body}`}>
+						Ordering flowers is simple &mdash; choose, personalise, and have
+						fresh blooms delivered by hand to their door.
+					</p>
+				</div>
+
+				{/*
+				  A horizontal accordion driven entirely by radio inputs.
+
+				  No JavaScript: one radio group, `has-[:checked]` grows the chosen
+				  panel and the rest fall back to slivers. That also makes it
+				  keyboard-operable for free — the panels are a radio group, so arrow
+				  keys move between steps, which a div-and-click version would have to
+				  reimplement badly.
+
+				  On narrow screens the row becomes a column and every panel is open:
+				  a 3rem-wide sliver is unusable on a phone.
+				*/}
+				<div class="flex flex-col gap-3 lg:h-[30rem] lg:flex-row lg:gap-2.5">
+					{
+						steps.map((step, index) => (
+							<label
+								/*
+								 * Each card sticks a little lower than the one before, so as
+								 * the column scrolls they pile up at the top with a sliver of
+								 * each still showing — and unpile in reverse on the way back.
+								 * The offset is inline because it depends on the index.
+								 */
+								style={`top: calc(1.5rem + ${index} * 1.25rem)`}
+								class:list={[
+									'group flex cursor-pointer overflow-hidden',
+									// Taller on a phone: the card is the whole width of the
+									// screen there, and the copy sits at its foot, so a short
+									// card leaves the number and title stranded at the top.
+									'min-h-[24rem] sm:min-h-[26rem] lg:min-h-0',
+									/*
+									 * `sticky` below lg, plain `relative` from lg up: the wide
+									 * layout is a horizontal accordion, where a sticky card
+									 * would detach from the row as the page scrolls.
+									 */
+									'sticky lg:relative',
+									// Slivers by default; the checked one takes the room.
+									'lg:flex-[1_1_0%] lg:has-[:checked]:flex-[7_1_0%]',
+									'lg:transition-[flex-grow] lg:duration-[650ms] lg:ease-[cubic-bezier(0.33,1,0.68,1)]',
+									'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-forest-700',
+									step.panel,
+								]}
+							>
+								<input
+									type="radio"
+									name="delivery-step"
+									class="peer sr-only"
+									checked={index === 0}
+								/>
+								<span class="sr-only">
+									Step {index + 1}: {step.title}
+								</span>
+
+								{/*
+								  A fixed width, not a fluid one. If the copy re-wrapped as the
+								  panel grew, every line would reflow through the animation —
+								  the text has to sit still while the colour block moves.
+								*/}
+								<span
+									class="pointer-events-none flex w-[min(22rem,100%)] shrink-0 flex-col p-7 opacity-100 transition-opacity duration-300 lg:w-[22rem] lg:p-9 lg:opacity-0 lg:peer-checked:opacity-100 lg:peer-checked:delay-200"
+									aria-hidden="true"
+								>
+									<span class="font-display text-[clamp(2rem,3vw,2.75rem)] leading-none text-white/35">
+										{String(index + 1).padStart(2, '0')}
+									</span>
+									<span class="mt-5 font-display text-[clamp(1.375rem,2vw,1.75rem)] leading-tight text-white">
+										{step.title}
+									</span>
+									{/*
+									  `mt-auto` at every size, not just from lg: the card is
+									  tall now, and the description belongs at its foot with
+									  the number and title held at the top. `pt-8` is the
+									  floor, so the two never collide on a short card.
+									*/}
+									<span class="mt-auto pt-8 text-[clamp(0.8125rem,0.85vw,0.9375rem)] leading-[1.65] text-white/85">
+										{step.body}
+									</span>
+								</span>
+							</label>
+						))
+					}
+				</div>
+			</div>
+		</div>
+	</section>
+
+	{/*
+	  --- Frequently asked ---
+	  Little bottom padding: the testimonials below bring their own generous
+	  top padding, and doubling the two leaves a hole in the page.
+	*/}
+	<section class="bg-butter pb-4 lg:pb-6">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<h2
+				class="text-center font-display text-[clamp(1.875rem,3.8vw,3.375rem)] leading-tight text-forest-700"
+			>
+				Frequently Asked Question
+			</h2>
+
+			<div class="mx-auto mt-12 w-full max-w-3xl lg:mt-16">
+				{
+					faqs.map((item, index) => (
+						/*
+						 * The dotted rule lives on the <details> itself rather than
+						 * between items, so it stays put as the answer grows — a
+						 * separator drawn on the sibling would slide with it.
+						 */
+						<details
+							class="accordion group rule-dotted text-forest-700/45"
+							open={index === 0}
+						>
+							<summary class="flex cursor-pointer list-none items-center justify-between gap-6 py-6 [&::-webkit-details-marker]:hidden">
+								<span class="font-display text-[clamp(1.125rem,1.7vw,1.5rem)] leading-snug text-forest-700">
+									{index + 1}. {item.q}
+								</span>
+
+								{/*
+								  One chevron pointing right, turned a quarter-turn when the
+								  answer is open — the same mark doing both jobs, rather than
+								  swapping between two glyphs.
+								*/}
+								<svg
+									width="11"
+									height="18"
+									viewBox="0 0 11 18"
+									fill="none"
+									aria-hidden="true"
+									class="shrink-0 text-terracotta-600 transition-transform duration-500 ease-out group-open:rotate-90"
+								>
+									<path
+										d="M1.5 1.5L9 9l-7.5 7.5"
+										stroke="currentColor"
+										stroke-width="1.7"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							</summary>
+
+							<p class="max-w-[62ch] pb-7 text-[clamp(0.8125rem,0.85vw,0.9375rem)] leading-[1.7] text-forest-700/85">
+								{item.a}
+							</p>
+						</details>
+					))
+				}
+			</div>
+		</div>
+	</section>
+
+	{/* --- What our customers say. Same component the home page uses. --- */}
+	<Testimonials />
+</Layout>

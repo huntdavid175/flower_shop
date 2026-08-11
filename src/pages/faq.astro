@@ -1,0 +1,219 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { formatPesewas } from '../lib/money';
+import {
+	DELIVERY_SLOTS,
+	MAX_DAYS_AHEAD,
+	MIN_DAYS_AHEAD,
+	getDeliveryZones,
+} from '../lib/checkout';
+
+/*
+ * Frequently asked questions.
+ *
+ * Built on native <details>, so every answer opens without JavaScript and the
+ * browser handles the keyboard and screen-reader behaviour for us. An accordion
+ * hand-rolled from divs and click handlers is one of the easiest ways to make a
+ * page unusable to someone not using a mouse.
+ *
+ * The delivery figures come from the same source checkout enforces, so they
+ * cannot drift the way a hard-coded list would.
+ *
+ * NOTE — the answers marked "POLICY" below are reasonable defaults I wrote, not
+ * decisions the shop has made: what happens when nobody is home, what can be
+ * substituted, and whether flowers can be returned. They must be confirmed
+ * before this page is public, because customers will hold the shop to them.
+ */
+const zones = await getDeliveryZones();
+
+const leadTime =
+	MIN_DAYS_AHEAD === 0
+		? 'the same day'
+		: MIN_DAYS_AHEAD === 1
+			? 'the next day'
+			: `${MIN_DAYS_AHEAD} days ahead`;
+
+const zoneList = zones
+	.map((zone) => `${zone.name} at ${formatPesewas(zone.feePesewas)}`)
+	.join(', ');
+
+const groups = [
+	{
+		heading: 'Delivery & returns',
+		items: [
+			{
+				q: 'How much does flower delivery cost?',
+				a: `The fee depends on the area, and it is added once per order rather than per bouquet. Right now that is ${zoneList}. You see the exact amount at checkout, before you pay anything.`,
+			},
+			{
+				q: 'How soon can you deliver?',
+				a: `The earliest we deliver is ${leadTime}, and you can book up to ${MAX_DAYS_AHEAD} days ahead — useful for a birthday you would rather not trust yourself to remember. You choose a time window when you order: ${DELIVERY_SLOTS.map((s) => s.label.toLowerCase()).join(', ')}.`,
+			},
+			{
+				q: 'What happens if nobody is there?',
+				// POLICY — confirm with the shop.
+				a: 'The courier rings the recipient on the number you gave us before they arrive, which is why that number matters more than anything else on the form. If nobody answers, they will call you, and we will agree either to leave the flowers with a neighbour or reception, or to come back.',
+			},
+			{
+				q: 'Can I return flowers?',
+				// POLICY — confirm with the shop.
+				a: 'Cut flowers cannot be returned once they have been delivered. If they arrive damaged, or they are not what you ordered, send us a photograph on the day and we will replace the bouquet.',
+			},
+		],
+	},
+	{
+		heading: 'Billing',
+		items: [
+			{
+				q: 'What payment methods do you accept?',
+				a: 'Mobile Money — MTN, Telecel and AirtelTigo — and Visa or Mastercard, Ghanaian or international. Payment is handled by Paystack, and everything is charged in Ghana cedis. We do not take cash on delivery.',
+			},
+			{
+				q: 'Can I get an invoice or receipt for my purchase?',
+				a: 'Yes. A receipt is emailed to the address you give at checkout as soon as the payment clears, and your order reference is on the confirmation page. If you need an invoice with a business name on it, ask us and we will send one.',
+			},
+			{
+				q: 'Are my card details safe?',
+				a: 'Your card and Mobile Money details are entered on Paystack’s own secure page. They never reach us, and we never store them — we only ever see that a payment succeeded and for how much.',
+			},
+		],
+	},
+	{
+		heading: 'Flowers',
+		items: [
+			{
+				q: 'How long will my flowers last?',
+				// POLICY — confirm with the shop.
+				a: 'Most of our bouquets keep for five days to a week in Accra’s heat, and longer if you keep them out of direct sun, change the water every other day and trim the stems at an angle each time.',
+			},
+			{
+				q: 'Will my bouquet look exactly like the photograph?',
+				// POLICY — confirm with the shop.
+				a: 'Very close, but not identical. Flowers are seasonal and each bouquet is arranged by hand, so if a particular stem is not at its best that morning we substitute something of the same colour and value rather than send you something tired.',
+			},
+			{
+				q: 'Do you take orders for weddings and events?',
+				a: 'Yes. Large arrangements and event work are quoted separately rather than ordered through the shop — get in touch with the date and roughly what you have in mind, and we will come back to you.',
+			},
+		],
+	},
+	{
+		heading: 'Voice messages',
+		items: [
+			{
+				q: 'How does the voice message work?',
+				a: 'When you write your card, you can record a message in your browser or upload one you have already made. We print a small card with a code on it and tuck it in with the flowers. The person receiving them points their phone camera at the code, and your voice plays.',
+			},
+			{
+				q: 'Does the recipient need an app?',
+				a: 'No. The camera app on any modern phone opens it, and there is nothing to install, sign up for or log into. It works the same on iPhone and Android.',
+			},
+			{
+				q: 'Can anyone else hear my message?',
+				a: 'Only someone holding the card. The code is long, random and appears nowhere else — it cannot be guessed or found by searching. The page shows your message and the bouquet, and never your name, your address or what you paid.',
+			},
+			{
+				q: 'Does it cost extra?',
+				a: 'No. The recording, the card and the code are included in the price of the bouquet.',
+			},
+		],
+	},
+];
+---
+
+<Layout
+	title="FAQs — La Fleur"
+	description="Answers about delivery across Accra, payment by Mobile Money or card, how long flowers last, and how the voice message card works."
+>
+	<section class="bg-butter py-16 lg:py-20">
+		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
+			<PageHeader title="FAQs" subtitle="Would you like to know more?" />
+
+			<div class="mx-auto mt-[clamp(3rem,6vw,6rem)] w-full max-w-4xl">
+				{
+					groups.map((group, groupIndex) => (
+						<section class={groupIndex > 0 ? 'mt-16 lg:mt-20' : ''}>
+							<h2 class="text-center font-display text-[clamp(1.875rem,3.4vw,3rem)] leading-tight text-forest-700">
+								{group.heading}
+							</h2>
+
+							<div class="mt-8 space-y-4">
+								{group.items.map((item, index) => (
+									// First of each group starts open, so the page never looks
+									// like a column of inert boxes and the answer style is
+									// visible without a click.
+									<details
+										class="accordion group border border-forest-700 bg-butter-50"
+										open={index === 0}
+									>
+										{/*
+										  The whole row is the control, not just the square —
+										  a small button is a small target on a phone, and the
+										  question itself is the obvious thing to tap.
+										*/}
+										<summary class="flex cursor-pointer list-none items-center justify-between gap-6 px-6 py-5 [&::-webkit-details-marker]:hidden">
+											<span class="text-[clamp(1rem,1.15vw,1.125rem)] font-semibold text-forest-900">
+												{index + 1}. {item.q}
+											</span>
+
+											<span
+												class="flex size-10 shrink-0 items-center justify-center border border-forest-700 text-forest-700 transition-colors duration-300 group-open:border-terracotta-700 group-open:bg-terracotta-700 group-open:text-white"
+												aria-hidden="true"
+											>
+												<svg
+													width="16"
+													height="10"
+													viewBox="0 0 16 10"
+													fill="none"
+													class="transition-transform duration-500 ease-out group-open:rotate-180"
+												>
+													<path
+														d="M1 1l7 7 7-7"
+														stroke="currentColor"
+														stroke-width="1.6"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+													/>
+												</svg>
+											</span>
+										</summary>
+
+										<p class="px-6 pb-6 text-[clamp(0.9375rem,0.95vw,1.0625rem)] leading-[1.75] text-forest-700/85">
+											{item.a}
+										</p>
+									</details>
+								))}
+							</div>
+						</section>
+					))
+				}
+
+				{/* --- Anything else --- */}
+				<div class="mt-16 border border-forest-700 bg-white p-8 text-center lg:mt-20">
+					<h2 class="font-display text-[1.375rem] text-forest-900">
+						Not answered here?
+					</h2>
+					<p class="mx-auto mt-3 max-w-xl text-[0.9375rem] leading-relaxed text-forest-700/75">
+						Flowers are usually for an occasion that matters. If anything is
+						unclear, ask before you order rather than after.
+					</p>
+					<div class="mt-6 flex flex-wrap items-center justify-center gap-4">
+						<a
+							href="/contact"
+							class="inline-flex items-center gap-3 bg-terracotta-700 px-7 py-3.5 text-[0.9375rem] font-semibold text-white transition-colors duration-300 hover:bg-terracotta-600"
+						>
+							Talk to us
+						</a>
+						<a
+							href="/guide"
+							class="text-[0.875rem] text-forest-700 underline underline-offset-4 transition-colors hover:text-terracotta-700"
+						>
+							How ordering works
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+</Layout>

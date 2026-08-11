@@ -29,6 +29,11 @@
 	/* Pale butter ground behind the product sections. */
 	--color-butter: #fdfbe8;
 
+	/* The same cream lifted about halfway towards white. For panels that need to
+	   separate from the butter ground without going flat white, which reads cold
+	   against it and breaks the warmth of the page. */
+	--color-butter-50: #fefdf5;
+
 	/* Kraft-paper panel behind the testimonial quotes. */
 	--color-sand: #ebdbbc;
 
@@ -91,6 +96,23 @@
 		to right,
 		currentColor 0 6px,
 		transparent 6px 11px
+	);
+	background-repeat: no-repeat;
+	background-size: 100% 1px;
+	background-position: 0 100%;
+}
+
+/*
+ * Dotted rule, drawn the same way as `rule-dashed` and for the same reason:
+ * browsers each pick their own dot size and spacing for `border-style: dotted`,
+ * so the only way to get a stable, fine dot is to paint it. Inherits
+ * currentColor.
+ */
+@utility rule-dotted {
+	background-image: repeating-linear-gradient(
+		to right,
+		currentColor 0 2px,
+		transparent 2px 7px
 	);
 	background-repeat: no-repeat;
 	background-size: 100% 1px;
@@ -235,4 +257,42 @@
 	.page-progress {
 		transition: none;
 	}
+}
+
+/*
+ * Let a <details> open and close smoothly.
+ *
+ * A native <details> snaps because the browser flips its content between
+ * rendered and not rendered — there is no intermediate state to transition.
+ * `::details-content` is that missing box, so it can be animated directly
+ * without JavaScript and without the usual wrapper-div and grid-rows trick.
+ *
+ * Three parts are all required:
+ *   interpolate-size      — permits animating to `auto`, which is the only
+ *                           height that fits an answer of unknown length
+ *   content-visibility    — with `allow-discrete`, keeps the text on screen
+ *                           for the closing animation instead of vanishing
+ *                           on the first frame
+ *   overflow: hidden      — clips the answer as the box grows
+ *
+ * Scoped to `.accordion` rather than every <details> on the site, and a browser
+ * without `::details-content` just gets the instant open it has today.
+ */
+:root {
+	interpolate-size: allow-keywords;
+}
+
+details.accordion::details-content {
+	block-size: 0;
+	overflow: hidden;
+	opacity: 0;
+	transition:
+		block-size 620ms cubic-bezier(0.33, 1, 0.68, 1),
+		opacity 420ms ease,
+		content-visibility 620ms allow-discrete;
+}
+
+details.accordion[open]::details-content {
+	block-size: auto;
+	opacity: 1;
 }
