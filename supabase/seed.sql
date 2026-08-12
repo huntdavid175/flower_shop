@@ -1,4 +1,4 @@
--- La Fleur — seed data
+-- Elfloral — seed data
 --
 -- Mirrors src/lib/catalog.ts so the site behaves identically once it reads from
 -- the database instead of that array. Prices are integer pesewas.

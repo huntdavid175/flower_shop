@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * La Fleur design tokens, taken from the template screenshots.
+ * Elfloral design tokens, taken from the template screenshots.
  *
  * Components reference token names (bg-teal-700, text-cream, font-display)
  * rather than raw hex, so a palette change stays a change to this file.

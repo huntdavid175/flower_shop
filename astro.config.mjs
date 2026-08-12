@@ -41,7 +41,7 @@ export default defineConfig({
 			 * The wordmark, and nothing else.
 			 *
 			 * Parisienne is a signature script — the shop's name written by hand
-			 * rather than set in type. It suits "La Fleur" because the name is
+			 * rather than set in type. It suits "Elfloral" because the name is
 			 * French and the letterforms come from French copperplate, and a
 			 * florist is one of the few trades where a handwritten mark reads as
 			 * craft rather than affectation.
