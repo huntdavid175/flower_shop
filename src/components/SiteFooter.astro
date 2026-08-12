@@ -1,5 +1,6 @@
 ---
 import SocialIcon from './SocialIcon.astro';
+import { addressLines as address, directionsUrl } from '../data/shop';
 
 const explore = [
 	{ label: 'Home', href: '/' },
@@ -26,13 +27,6 @@ const hours = [
 	{ days: 'Saturday', time: '10am - 2pm' },
 ];
 
-const address = ['18 Westlands Blvd,', 'Accra, Ghana'];
-
-// Built from the address itself, so "Get Directions" cannot drift from what the
-// footer prints above it.
-const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-	address.join(' ').replace(/,$/, ''),
-)}`;
 
 // Set by /api/newsletter after a submission.
 const newsletterStatus = Astro.url.searchParams.get('newsletter');

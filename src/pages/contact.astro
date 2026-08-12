@@ -2,13 +2,11 @@
 import Layout from '../layouts/Layout.astro';
 import PageHeader from '../components/PageHeader.astro';
 import { testimonials } from '../data/testimonials';
+import { addressLines as address, addressInline, directionsUrl } from '../data/shop';
 
 const sent = Astro.url.searchParams.get('sent');
 
-const address = ['18 Westlands Blvd,', 'Accra, Ghana'];
-const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-	address.join(' ').replace(/,$/, ''),
-)}`;
+
 
 const panelHeading =
 	'font-display text-[clamp(1.375rem,2.2vw,1.875rem)] leading-none text-forest-700';
@@ -22,7 +20,7 @@ const rule = 'border-forest-700/40';
 
 <Layout
 	title="Contact Us — Elfloral"
-	description="Talk to Elfloral about an order, a delivery date, or flowers for an event. 18 Westlands Blvd, Accra."
+	description={`Talk to Elfloral about an order, a delivery date, or flowers for an event. ${addressInline}.`}
 >
 	<section class="bg-butter py-16 lg:py-20">
 		<div class="px-5 sm:px-8 lg:px-10 3xl:mx-auto 3xl:max-w-page">
