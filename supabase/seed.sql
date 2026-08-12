@@ -15,9 +15,9 @@
 
 insert into public.categories (slug, name, image_url, sort_order) values
   ('flowers',  'Flowers',  '/images/flower1.jpg',   1),
-  ('vases',    'Vases',    '/images/product5.avif',     2),
-  ('plants',   'Plants',   '/images/product7.avif',   3),
-  ('pottery',  'Pottery',  '/images/product6.avif',  4),
+  ('vases',    'Vases',    '/images/product5.jpg',     2),
+  ('plants',   'Plants',   '/images/product7.jpg',   3),
+  ('pottery',  'Pottery',  '/images/product6.jpg',  4),
   ('candles',  'Candles',  '/images/product8.avif',  5),
   ('seeds',    'Seeds',    '/images/seeds.avif',    6)
 on conflict (slug) do update
@@ -82,15 +82,15 @@ values
      (select id from public.categories where slug = 'flowers'), 6500, null,
      'Muscari and craspedia in an amber glass bud vase, set against warm ochre and terracotta.', 8),
 
-  ('eterna-vase',     'Eterna Vase',     'FS-EV-009', '/images/product5.avif',
+  ('eterna-vase',     'Eterna Vase',     'FS-EV-009', '/images/product5.jpg',
      (select id from public.categories where slug = 'vases'), 2400, 3700,
      'A pair of glazed ceramic vases in cream and pale blue. Sold as a set.', 9),
 
-  ('heritage-clay',   'Heritage Clay',   'FS-HC-010', '/images/product6.avif',
+  ('heritage-clay',   'Heritage Clay',   'FS-HC-010', '/images/product6.jpg',
      (select id from public.categories where slug = 'pottery'), 2400, 3600,
      'Hand-thrown stoneware in warm earth tones, with a smaller companion pot.', 10),
 
-  ('green-petals',    'Green Petals',    'FS-GP-011', '/images/product7.avif',
+  ('green-petals',    'Green Petals',    'FS-GP-011', '/images/product7.jpg',
      (select id from public.categories where slug = 'plants'), 6500, 8900,
      'A young monstera in a mint glazed pot — easy to care for and hard to kill.', 11),
 
